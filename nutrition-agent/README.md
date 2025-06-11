@@ -11,6 +11,7 @@ A LangChain-based health and diet agent that analyzes recipes and ingredients fo
 - **Cooking Method Awareness**: Considers how cooking methods affect nutrition
 - **Router Integration**: Designed to work with LangChain router nodes
 - **Conversational Memory**: Maintains context across interactions
+- **Multiple LLM Support**: Works with OpenAI, GitHub models, Groq API, and is easily extensible to other providers
 
 ## Setup
 
@@ -21,16 +22,64 @@ pip install -r requirements.txt
 
 2. Create a `.env` file with your API keys:
 ```bash
-cp .env.example .env
+cp sample.env .env
 # Edit .env with your actual API keys
 ```
 
 3. Get API keys:
    - OpenAI API key from https://platform.openai.com/api-keys
+   - GitHub token with appropriate permissions
+   - Groq API key from https://console.groq.com/keys
 
 ## Usage
 
 ### Standalone Usage
+
+#### Using the LLM Configuration (Recommended)
+
+```python
+from health_diet_agent import HealthDietAgent
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Using OpenAI (environment variables will be used)
+agent = HealthDietAgent(
+    llm_provider="openai"
+)
+
+# Or with custom configuration
+agent = HealthDietAgent(
+    llm_provider="openai",
+    llm_config={
+        "model_name": "gpt-4-turbo-preview",
+        "temperature": 0.2
+    }
+)
+
+# Using GitHub model
+agent = HealthDietAgent(
+    llm_provider="github",
+    llm_config={
+        "model": "model-name" # Replace with actual model name
+    }
+)
+
+# Using Groq API
+agent = HealthDietAgent(
+    llm_provider="groq",
+    llm_config={
+        "model": "llama3-8b-8192",
+        "temperature": 0.2
+    }
+)
+
+# Analyze a recipe
+result = agent.analyze_nutrition("What are the macros for chicken tikka masala with rice?")
+print(result["analysis"])
+```
+
+#### Legacy Usage (Still Supported)
 
 ```python
 from health_diet_agent import HealthDietAgent
@@ -39,17 +88,33 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Using OpenAI
 agent = HealthDietAgent(
-    openai_api_key=os.getenv("OPENAI_API_KEY")
+    openai_api_key=os.getenv("OPENAI_API_KEY"),
+    model_provider="openai"
 )
 
-# Analyze a recipe
-result = agent.analyze_nutrition("What are the macros for chicken tikka masala with rice?")
-print(result["analysis"])
+# Using GitHub
+agent = HealthDietAgent(
+    model_provider="github",
+    github_token=os.getenv("GITHUB_TOKEN"),
+    model="model-name" # Replace with actual model name
+)
+```
 
-# Analyze with individual breakdown
-result = agent.analyze_nutrition("Give me individual breakdown for pasta carbonara ingredients")
-print(result["analysis"])
+### Command Line Usage
+
+You can run the agent directly from the command line:
+
+```bash
+# Using OpenAI (default)
+python main.py
+
+# Using GitHub model
+python main.py --model-provider github
+
+# Using Groq API
+python main.py --model-provider groq --groq-model "llama3-8b-8192"
 ```
 
 ### Router Integration
@@ -57,9 +122,18 @@ print(result["analysis"])
 ```python
 from router_integration import create_kitchen_assistant_with_nutrition
 
-# Create router with nutrition agent
+# Create router with nutrition agent using default configuration
 router = create_kitchen_assistant_with_nutrition(
-    openai_api_key="your_openai_key"
+    llm_provider="openai"
+)
+
+# Or with custom configuration
+router = create_kitchen_assistant_with_nutrition(
+    llm_provider="github",
+    llm_config={
+        "model": "model-name", # Replace with actual model name
+        "temperature": 0.1
+    }
 )
 
 # Route queries
@@ -73,6 +147,7 @@ if result["can_handle"]:
 ### Core Components
 
 - **HealthDietAgent**: Main agent class with LangChain integration
+- **LLMConfig**: Platform-agnostic configuration for different LLM providers
 - **NutritionSearchTool**: Web search tools for nutrition data
 - **Models**: Pydantic models for structured data
 - **Router Integration**: Interface for multi-agent systems

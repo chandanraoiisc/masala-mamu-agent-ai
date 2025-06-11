@@ -5,17 +5,35 @@ This module provides the necessary interfaces and utilities to integrate
 the Health & Diet Agent with a LangChain router system.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Literal
+import os
 from health_diet_agent import HealthDietAgent
+from llm_config import create_llm_config
 import json
 
 
 class NutritionAgentRouter:
     """Router interface for the Health & Diet Agent."""
 
-    def __init__(self, agent: HealthDietAgent):
-        self.agent = agent
-        self.agent_info = agent.get_agent_info()
+    def __init__(
+        self,
+        agent: Optional[HealthDietAgent] = None,
+        llm_provider: Literal["openai", "github", "groq"] = "openai",
+        llm_config: Optional[Dict[str, Any]] = None,
+    ):
+        if agent:
+            self.agent = agent
+        else:
+            # Prepare config dict, ensuring no API keys
+            config = llm_config or {}
+
+            # Initialize the agent with the LLM configuration
+            self.agent = HealthDietAgent(
+                llm_provider=llm_provider,
+                llm_config=config
+            )
+
+        self.agent_info = self.agent.get_agent_info()
 
     def route_query(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -139,19 +157,32 @@ class KitchenAssistantRouter:
 
 
 # Example usage for router integration
-def create_kitchen_assistant_with_nutrition(openai_api_key: str) -> KitchenAssistantRouter:
+def create_kitchen_assistant_with_nutrition(
+    llm_provider: Literal["openai", "github", "groq"] = "openai",
+    llm_config: Optional[Dict[str, Any]] = None,
+) -> KitchenAssistantRouter:
     """
     Create a kitchen assistant router with the nutrition agent registered.
 
     Args:
-        openai_api_key: OpenAI API key
+        llm_provider: LLM provider to use ('openai', 'github', or 'groq')
+        llm_config: Configuration parameters for the LLM provider (NOT API keys)
 
     Returns:
         Configured KitchenAssistantRouter instance
     """
-    # Create the nutrition agent
+    # Prepare config dict, ensuring no API keys
+    config = llm_config or {}
+
+    # Remove any API keys from config
+    for key in ["api_key", "openai_api_key", "github_token", "groq_api_key"]:
+        if key in config:
+            del config[key]
+
+    # Create the nutrition agent with the LLM configuration
     nutrition_agent = HealthDietAgent(
-        openai_api_key=openai_api_key
+        llm_provider=llm_provider,
+        llm_config=config
     )
 
     # Create router interface for the agent

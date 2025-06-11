@@ -1,32 +1,37 @@
-from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor, create_openai_functions_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from langchain.memory import ConversationBufferWindowMemory
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Literal, Union
 import json
+import os
 import re
 from models import NutritionQuery, RecipeNutrition, MacroNutrient, IngredientNutrition
 from tools import create_nutrition_search_tools
+from llm_config import get_llm
 
 
 class HealthDietAgent:
     """LangChain-based Health & Diet Agent for nutrition analysis."""
 
-    def __init__(self, openai_api_key: str, tavily_api_key: str = None, model_name: str = "gpt-4-turbo-preview"):
-        self.llm = ChatOpenAI(
-            api_key=openai_api_key,
-            model=model_name,
-            temperature=0.1
-        )
+    def __init__(
+        self,
+        llm_provider: Literal["openai", "github", "groq"] = "openai",
+        llm_config: Optional[Dict[str, Any]] = None,
+    ):
+        # Prepare config dict based on the provider
+        config = llm_config or {}
+
+        # Get the LLM from the configuration provider
+        self.llm = get_llm(llm_provider, config)
 
         self.tools = create_nutrition_search_tools()
 
         # Create agent prompt
         self.prompt = ChatPromptTemplate.from_messages([
-            SystemMessage(self._get_system_prompt()),
+            SystemMessage(content=self._get_system_prompt()),
             MessagesPlaceholder(variable_name="chat_history"),
-            HumanMessage(variable_name="input"),
+            HumanMessage(content="{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad")
         ])
 

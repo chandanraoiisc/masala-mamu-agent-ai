@@ -1,6 +1,8 @@
 import os
+import argparse
 from dotenv import load_dotenv
 from health_diet_agent import HealthDietAgent
+from llm_config import create_llm_config
 import json
 
 # Load environment variables
@@ -9,16 +11,22 @@ load_dotenv()
 def main():
     """Example usage of the Health & Diet Agent."""
 
-    # Initialize the agent
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-
-    if not openai_api_key:
-        print("Please set OPENAI_API_KEY in your .env file")
-        return
-
-    agent = HealthDietAgent(
-        openai_api_key=openai_api_key
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Health & Diet Agent")
+    parser.add_argument(
+        "--model-provider",
+        choices=["openai", "github", "groq"],
+        default="openai",
+        help="Model provider to use (openai, github, or groq)"
     )
+    args = parser.parse_args()
+
+    try:
+        # Environment variables for models are set in .env file
+        agent = HealthDietAgent(llm_provider=args.model_provider)
+    except ValueError as e:
+        print(f"Error initializing agent: {e}")
+        return
 
     print("Health & Diet Agent initialized successfully!")
     print("Ask me about nutrition facts for recipes or ingredients.")
