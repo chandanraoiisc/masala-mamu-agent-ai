@@ -14,7 +14,6 @@ Currently supported providers:
 import os
 from typing import Dict, Optional, Any, Literal, Union
 from langchain_openai import ChatOpenAI
-from langchain_community.llms import GithubLLM
 from langchain_groq import ChatGroq
 from langchain.schema.language_model import BaseLanguageModel
 from abc import ABC, abstractmethod
@@ -91,12 +90,9 @@ class GitHubConfig(LLMConfig):
         self,
         temperature: float = 0.1,
         model: str = None,
+        top_p: float = 1.0,
         **kwargs
     ):
-        # Check if GitHub integration is available
-        if GithubLLM is None:
-            raise ValueError("GitHub LLM integration is not available. Install the langchain-github-llm package.")
-
         # Get token only from environment variable
         self.github_token = os.getenv("GITHUB_TOKEN")
         if not self.github_token:
@@ -108,6 +104,8 @@ class GitHubConfig(LLMConfig):
             raise ValueError("GitHub model name is required. Provide it via parameter or set GITHUB_MODEL in environment.")
 
         self.temperature = temperature
+        self.top_p = top_p
+        self.endpoint = "https://models.github.ai/inference"
 
         # Remove any API keys from kwargs
         if "github_token" in kwargs:
@@ -115,15 +113,14 @@ class GitHubConfig(LLMConfig):
 
         self.kwargs = kwargs
 
-    def create_llm(self):
-        """Create and return a GitHub LLM instance."""
-        if GithubLLM is None:
-            raise ValueError("GitHub LLM integration is not available. Install the langchain-github-llm package.")
-
-        return GithubLLM(
+    def create_llm(self) -> ChatOpenAI:
+        """Create and return a GitHub LLM instance using ChatOpenAI."""
+        return ChatOpenAI(
             model=self.model,
-            github_token=self.github_token,
             temperature=self.temperature,
+            top_p=self.top_p,
+            base_url=self.endpoint,
+            api_key=self.github_token,
             **self.kwargs
         )
 
