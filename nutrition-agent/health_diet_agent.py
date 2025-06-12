@@ -157,9 +157,9 @@ class HealthDietAgent:
         history = []
         for msg in messages:
             if isinstance(msg, HumanMessage):
-                history.append({"role": "user", "content": msg.content})
+                history.append(HumanMessage(content=msg.content))
             elif isinstance(msg, AIMessage):
-                history.append({"role": "assistant", "content": msg.content})
+                history.append(AIMessage(content=msg.content))
         return history
 
     def clear_memory(self):
