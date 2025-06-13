@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # ------------------------- Streamlit Page Config -------------------------
 st.set_page_config(
-    page_title="Masala Mamu: Price Comparison AI",
+    page_title="Masala Mamu: AI Kitchen Assistant",
     page_icon="🌶️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -484,7 +484,7 @@ with st.sidebar:
 
 # Main interface
 # Using inline style for direct control over text color
-st.markdown('<h1 style="color: #212121;">🌶️ Masala Mamu: Price Comparison AI</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="color: #212121;">🌶️ Masala Mamu: AI Kitchen Assistant</h1>', unsafe_allow_html=True)
 st.markdown('<p style="color: #212121;"><i>Your personal shopping assistant for comparing grocery prices across India</i></p>', unsafe_allow_html=True)
 
 # Chat display
