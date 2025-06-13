@@ -10,6 +10,7 @@ import os
 from health_diet_agent import HealthDietAgent
 from llm_config import create_llm_config
 import json
+from utils.logger import setup_logger
 
 
 class NutritionAgentRouter:
@@ -21,11 +22,15 @@ class NutritionAgentRouter:
         llm_provider: Literal["openai", "github", "groq"] = "openai",
         llm_config: Optional[Dict[str, Any]] = None,
     ):
+        # Setup logger
+        self.logger = setup_logger(__name__)
         if agent:
+            self.logger.info("Using provided agent instance")
             self.agent = agent
         else:
             # Prepare config dict, ensuring no API keys
             config = llm_config or {}
+            self.logger.info(f"Creating new agent instance with {llm_provider} provider")
 
             # Initialize the agent with the LLM configuration
             self.agent = HealthDietAgent(
@@ -34,6 +39,7 @@ class NutritionAgentRouter:
             )
 
         self.agent_info = self.agent.get_agent_info()
+        self.logger.debug(f"Agent info: {self.agent_info['name']}")
 
     def route_query(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -88,10 +94,12 @@ class NutritionAgentRouter:
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Return agent capabilities for router decision making."""
+        self.logger.debug(f"Returning agent capabilities: {self.agent_info.get('name', 'unknown')}")
         return self.agent_info
 
     def reset_conversation(self):
         """Reset the agent's conversation memory."""
+        self.logger.info("Resetting nutrition agent conversation memory")
         self.agent.clear_memory()
 
 
@@ -102,13 +110,17 @@ class KitchenAssistantRouter:
     """
 
     def __init__(self):
+        # Setup logger
+        self.logger = setup_logger(__name__)
         self.agents = {}
         self.conversation_history = []
+        self.logger.info("KitchenAssistantRouter initialized")
 
     def register_agent(self, agent_router: NutritionAgentRouter):
         """Register an agent with the router."""
         agent_info = agent_router.get_capabilities()
         self.agents[agent_info["name"]] = agent_router
+        self.logger.info(f"Registered agent: {agent_info['name']}")
         print(f"Registered agent: {agent_info['name']}")
 
     def route_query(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -122,11 +134,15 @@ class KitchenAssistantRouter:
         Returns:
             Response from the selected agent
         """
+        self.logger.info(f"Routing query to appropriate agent: '{query[:50]}...'")
+
         # Try each agent to see if it can handle the query
         for agent_name, agent_router in self.agents.items():
+            self.logger.debug(f"Trying agent: {agent_name}")
             result = agent_router.route_query(query, context)
 
             if result["can_handle"]:
+                self.logger.info(f"Query handled by agent: {agent_name}")
                 # Update conversation history
                 self.conversation_history.append({
                     "query": query,
@@ -138,6 +154,7 @@ class KitchenAssistantRouter:
                 return result
 
         # No agent can handle the query
+        self.logger.warning("No agent could handle the query")
         return {
             "can_handle": False,
             "agent_name": None,
@@ -151,6 +168,7 @@ class KitchenAssistantRouter:
 
     def clear_all_conversations(self):
         """Clear conversation history for all agents."""
+        self.logger.info("Clearing conversation history for all agents")
         for agent_router in self.agents.values():
             agent_router.reset_conversation()
         self.conversation_history.clear()
@@ -171,25 +189,33 @@ def create_kitchen_assistant_with_nutrition(
     Returns:
         Configured KitchenAssistantRouter instance
     """
+    # Setup logger for this function
+    logger = setup_logger(__name__)
     # Prepare config dict, ensuring no API keys
     config = llm_config or {}
+    logger.info(f"Creating kitchen assistant with {llm_provider} provider")
 
     # Remove any API keys from config
     for key in ["api_key", "openai_api_key", "github_token", "groq_api_key"]:
         if key in config:
+            logger.warning(f"Removing API key {key} from config for security")
             del config[key]
 
     # Create the nutrition agent with the LLM configuration
+    logger.info("Initializing Health Diet Agent")
     nutrition_agent = HealthDietAgent(
         llm_provider=llm_provider,
         llm_config=config
     )
 
     # Create router interface for the agent
+    logger.info("Creating nutrition agent router")
     nutrition_router = NutritionAgentRouter(nutrition_agent)
 
     # Create main router and register the nutrition agent
+    logger.info("Creating kitchen assistant router and registering nutrition agent")
     kitchen_router = KitchenAssistantRouter()
     kitchen_router.register_agent(nutrition_router)
 
+    logger.info("Kitchen assistant with nutrition agent successfully created")
     return kitchen_router

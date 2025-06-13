@@ -9,6 +9,7 @@ import re
 from models import NutritionQuery, RecipeNutrition, MacroNutrient, IngredientNutrition
 from tools import create_nutrition_search_tools
 from llm_config import get_llm
+from utils.logger import setup_logger
 
 
 class HealthDietAgent:
@@ -19,8 +20,12 @@ class HealthDietAgent:
         llm_provider: Literal["openai", "github", "groq"] = "openai",
         llm_config: Optional[Dict[str, Any]] = None,
     ):
+        # Setup logger
+        self.logger = setup_logger(__name__, log_level="DEBUG")
         # Prepare config dict based on the provider
         config = llm_config or {}
+
+        self.logger.info(f"Initializing HealthDietAgent with {llm_provider} provider")
 
         # Get the LLM from the configuration provider
         self.llm = get_llm(llm_provider, config)
@@ -90,6 +95,7 @@ class HealthDietAgent:
 
     def parse_user_input(self, user_input: str) -> NutritionQuery:
         """Parse user input to determine query type and extract relevant information."""
+        self.logger.debug(f"Parsing user input: {user_input}")
         user_input_lower = user_input.lower()
 
         # Determine if it's asking for individual breakdown
@@ -118,7 +124,9 @@ class HealthDietAgent:
 
     def analyze_nutrition(self, user_input: str) -> Dict[str, Any]:
         """Main method to analyze nutrition based on user input."""
+        self.logger.info(f"Analyzing nutrition query: {user_input[:50]}...")
         query = self.parse_user_input(user_input)
+        self.logger.debug(f"Parsed query: {query}")
 
         # Enhance the prompt with structured information
         enhanced_input = f"""
@@ -138,13 +146,16 @@ class HealthDietAgent:
         """
 
         try:
+            self.logger.info("Invoking nutrition agent executor")
             result = self.agent_executor.invoke({"input": enhanced_input})
+            self.logger.info("Successfully generated nutrition analysis")
             return {
                 "success": True,
                 "analysis": result["output"],
                 "query_info": query.dict()
             }
         except Exception as e:
+            self.logger.error(f"Error during nutrition analysis: {str(e)}")
             return {
                 "success": False,
                 "error": str(e),
@@ -164,10 +175,12 @@ class HealthDietAgent:
 
     def clear_memory(self):
         """Clear conversation memory."""
+        self.logger.info("Clearing conversation memory")
         self.memory.clear()
 
     def set_context(self, context: str):
         """Set additional context for the agent (useful for router integration)."""
+        self.logger.debug(f"Setting additional context: {context[:50]}...")
         self.memory.chat_memory.add_user_message(f"Context: {context}")
 
     # Router-friendly methods
@@ -180,7 +193,9 @@ class HealthDietAgent:
         ]
 
         query_lower = query.lower()
-        return any(keyword in query_lower for keyword in nutrition_keywords)
+        can_handle = any(keyword in query_lower for keyword in nutrition_keywords)
+        self.logger.debug(f"Query check: '{query[:30]}...' - Can handle: {can_handle}")
+        return can_handle
 
     def get_agent_info(self) -> Dict[str, Any]:
         """Return agent information for router registration."""

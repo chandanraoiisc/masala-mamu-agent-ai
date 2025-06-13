@@ -4,12 +4,15 @@ from dotenv import load_dotenv
 from health_diet_agent import HealthDietAgent
 from llm_config import create_llm_config
 import json
+from utils.logger import setup_logger
 
 # Load environment variables
 load_dotenv()
 
 def main():
     """Example usage of the Health & Diet Agent."""
+    # Setup logger
+    logger = setup_logger(__name__)
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Health & Diet Agent")
@@ -23,8 +26,10 @@ def main():
 
     try:
         # Environment variables for models are set in .env file
+        logger.info(f"Initializing Health Diet Agent with {args.model_provider} provider")
         agent = HealthDietAgent(llm_provider=args.model_provider)
     except ValueError as e:
+        logger.error(f"Error initializing agent: {str(e)}")
         print(f"Error initializing agent: {e}")
         return
 
@@ -40,19 +45,23 @@ def main():
         user_input = input("You: ").strip()
 
         if user_input.lower() in ['quit', 'exit', 'q']:
+            logger.info("User exited the application")
             break
 
         if not user_input:
             continue
 
+        logger.info(f"Processing user query: {user_input}")
         print("\nAnalyzing nutrition... This may take a moment.\n")
 
         # Analyze nutrition
         result = agent.analyze_nutrition(user_input)
 
         if result["success"]:
+            logger.info("Successfully analyzed nutrition query")
             print("Agent:", result["analysis"])
         else:
+            logger.error(f"Error during nutrition analysis: {result['error']}")
             print(f"Error: {result['error']}")
 
         print("\n" + "="*50 + "\n")
