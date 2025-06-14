@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 class ProductOffer:
     platform: str
     price: str
+    quantity: str = ""
     def get_numeric_price(self) -> float:
         try:
             price_str = re.sub(r'[^\d.]', '', self.price)
@@ -303,9 +304,23 @@ async def quickcompare_scraper(query: str, max_cards: int = 5) -> str:
         formatted_output += "Offers:\n"
         if product.offers:
             for offer in product.offers:
-                formatted_output += f"  - {offer.platform}: {offer.price}\n"
+                # Extract quantity from product name if available
+                quantity = ""
+                if "pieces" in product.name.lower():
+                    quantity = product.name.split("pieces")[0].strip().split()[-1]
+                elif "kg" in product.name.lower():
+                    quantity = product.name.split("kg")[0].strip().split()[-1] + "kg"
+                elif "g" in product.name.lower():
+                    quantity = product.name.split("g")[0].strip().split()[-1] + "g"
+                elif "l" in product.name.lower():
+                    quantity = product.name.split("l")[0].strip().split()[-1] + "L"
+                
+                if quantity:
+                    formatted_output += f"  - {offer.platform}: {offer.price} ({quantity})\n"
+                else:
+                    formatted_output += f"  - {offer.platform}: {offer.price}\n"
         else:
             formatted_output += "  No offers found for this product.\n"
         formatted_output += "---\n"
     logger.info(f"Generated formatted output for {len(products)} products")
-    return formatted_output.strip() 
+    return formatted_output.strip()
