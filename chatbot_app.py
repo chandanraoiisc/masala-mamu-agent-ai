@@ -15,6 +15,7 @@ from route_agent import run_price_agent_sync
 import speech_recognition as sr
 from gtts import gTTS
 from io import BytesIO
+import base64
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -87,7 +88,6 @@ body, .stApp {
     line-height: 1.7;
     word-break: break-word;
 }
-/* Removed .main-title as we'll use inline styles for the main title/subtitle */
 .avatar {
     width: 2.2rem;
     height: 2.2rem;
@@ -234,14 +234,39 @@ body, .stApp {
 }
 .product-cheapest {
     font-weight: 600;
-    color: #28a745; /* Green for best price */
+    color: #28a745;
 }
 .product-expensive {
-    color: #dc3545; /* Red for highest price */
+    color: #dc3545;
 }
 .product-savings {
     font-weight: 600;
-    color: #17a2b8; /* Info blue for savings */
+    color: #17a2b8;
+}
+
+/* Safari-specific audio player styling */
+.safari-audio-player {
+    width: 100%;
+    max-width: 300px;
+    margin: 10px 0;
+    border-radius: 8px;
+    background: #f5f5f5;
+}
+
+.play-audio-btn {
+    background: linear-gradient(90deg, #4caf50 60%, #66bb6a 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    margin: 5px 0;
+    transition: background 0.2s;
+}
+
+.play-audio-btn:hover {
+    background: linear-gradient(90deg, #388e3c 60%, #4caf50 100%);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -275,7 +300,6 @@ def init_speech_engines():
         return recognizer, True
     except Exception as e:
         logger.error(f"Speech engine initialization error: {str(e)}")
-        # In a real app, you might hide voice features if unavailable
         return None, False
 
 recognizer, tts_available = init_speech_engines()
@@ -289,13 +313,13 @@ def speech_to_text() -> Optional[str]:
 
     try:
         with sr.Microphone() as source:
-            st.session_state.listening = True # Set listening state before starting to listen
+            st.session_state.listening = True
             st.toast("🎤 Listening... Speak now!")
             recognizer.adjust_for_ambient_noise(source, duration=0.5)
             audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
 
         st.toast("🔄 Processing speech...")
-        st.session_state.listening = False # Reset listening state after audio capture
+        st.session_state.listening = False
         return recognizer.recognize_google(audio)
     except sr.WaitTimeoutError:
         st.warning("⏰ No speech detected. Please try again.")
@@ -310,109 +334,259 @@ def speech_to_text() -> Optional[str]:
         st.error(f"❌ Unexpected error during speech recognition: {str(e)}")
         logger.error(f"Unexpected error during speech recognition: {e}", exc_info=True)
     finally:
-        st.session_state.listening = False # Ensure listening state is reset even on error
+        st.session_state.listening = False
     return None
 
-def text_to_speech(text: str) -> Optional[bytes]:
-    """Convert text to speech using gTTS and return audio bytes for Streamlit"""
+def text_to_speech_safari_compatible(text: str) -> Optional[Dict[str, Any]]:
+    """
+    Convert text to speech with Safari compatibility.
+    Returns both audio bytes and base64 encoded data for different rendering methods.
+    """
     if not st.session_state.enable_tts or not tts_available:
         logger.info("Text-to-Speech is disabled or not available.")
         return None
+    
     try:
-        # Remove markdown formatting for TTS
-        clean_text = re.sub(r'<[^>]+>', '', text)
+        # First, try to parse the structured response to extract just the summary
+        parsed_response = parse_structured_response(text)
+        
+        # If we have a structured response with a summary, use that
+        if parsed_response and "summary" in parsed_response and parsed_response["summary"]:
+            clean_text = parsed_response["summary"]
+            logger.info(f"Using extracted summary for TTS: {clean_text[:100]}...")
+        else:
+            # Fallback to cleaning the entire text
+            clean_text = text
+            logger.info("No structured summary found, using full text for TTS")
+        
+        # Clean text for TTS (remove markdown, HTML, etc.)
+        clean_text = re.sub(r'<[^>]+>', '', clean_text)
         clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_text)
         clean_text = re.sub(r'\*(.+?)\*', r'\1', clean_text)
-
+        clean_text = re.sub(r'[{}]', '', clean_text)  # Remove JSON formatting
+        clean_text = re.sub(r'`json.*?`', '', clean_text, flags=re.DOTALL)  # Remove JSON code blocks
+        clean_text = re.sub(r'```.*?```', '', clean_text, flags=re.DOTALL)  # Remove code blocks
+        clean_text = clean_text.strip()
+        
+        # Limit text length for better performance
+        if len(clean_text) > 500:
+            clean_text = clean_text[:500] + "..."
+        
+        # Skip TTS if text is too short or empty
+        if len(clean_text.strip()) < 10:
+            logger.info("Text too short for TTS, skipping")
+            return None
+        
         tts = gTTS(text=clean_text, lang='en', slow=False)
         audio_fp = BytesIO()
         tts.write_to_fp(audio_fp)
         audio_fp.seek(0)
-        logger.info("Text converted to speech (gTTS).")
-        return audio_fp.read()
+        
+        audio_bytes = audio_fp.read()
+        
+        # Create base64 encoded version for Safari compatibility
+        audio_base64 = base64.b64encode(audio_bytes).decode()
+        
+        logger.info(f"Text converted to speech with Safari compatibility. Clean text: {clean_text[:100]}...")
+        
+        return {
+            "audio_bytes": audio_bytes,
+            "audio_base64": audio_base64,
+            "clean_text": clean_text
+        }
+        
     except Exception as e:
         logger.error(f"gTTS Error: {str(e)}", exc_info=True)
         st.error(f"🔊 Text-to-Speech failed: {str(e)}")
         return None
 
-def parse_structured_response(response_str: str) -> Dict[str, Any]:
-    """Parse JSON response or return as plain text"""
-    logger.info(f"Attempting to parse response: {response_str[:100]}...")
-    try:
-        data = json.loads(response_str)
-        if isinstance(data, dict) and "products" in data and "summary" in data:
-            logger.info("Parsed response as structured product data.")
-            return data
-    except json.JSONDecodeError:
-        logger.info("Response is not JSON, treating as plain text.")
-        pass
-    return {"summary": response_str, "products": []}
+def create_safari_audio_player(audio_data: Dict[str, Any]) -> str:
+    """Create Safari-compatible audio player HTML"""
+    audio_base64 = audio_data["audio_base64"]
+    clean_text = audio_data["clean_text"]
+    
+    # Create a unique ID for this audio player
+    import uuid
+    player_id = f"audio_player_{uuid.uuid4().hex[:8]}"
+    
+    html = f"""
+    <div class="safari-audio-player">
+        <audio id="{player_id}" preload="none" controls style="width: 100%; max-width: 300px;">
+            <source src="data:audio/mpeg;base64,{audio_base64}" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+        <br>
+        <button class="play-audio-btn" onclick="playAudioSafari('{player_id}')">
+            🔊 Play Audio (Safari Compatible)
+        </button>
+    </div>
+    
+    <script>
+    function playAudioSafari(playerId) {{
+        const audio = document.getElementById(playerId);
+        if (audio) {{
+            // For Safari: ensure user interaction triggers the play
+            audio.load(); // Reload the audio element
+            const playPromise = audio.play();
+            
+            if (playPromise !== undefined) {{
+                playPromise.then(() => {{
+                    console.log('Audio started playing successfully');
+                }}).catch(error => {{
+                    console.log('Audio play failed:', error);
+                    // Fallback: try to play again after a brief delay
+                    setTimeout(() => {{
+                        audio.play().catch(e => console.log('Retry failed:', e));
+                    }}, 100);
+                }});
+            }}
+        }}
+    }}
+    
+    // Additional Safari-specific initialization
+    document.addEventListener('DOMContentLoaded', function() {{
+        const audio = document.getElementById('{player_id}');
+        if (audio) {{
+            // Enable audio playback on Safari by setting volume
+            audio.volume = 0.8;
+            
+            // Add event listeners for debugging
+            audio.addEventListener('loadstart', () => console.log('Audio load started'));
+            audio.addEventListener('canplay', () => console.log('Audio can play'));
+            audio.addEventListener('error', (e) => console.log('Audio error:', e));
+        }}
+    }});
+    </script>
+    """
+    
+    return html
+
+def parse_structured_response(response_str: str) -> dict:
+    """Extract and parse JSON from the response string, including additional text."""
+    import re, json
+    
+    # First, remove the JSON code block completely from the response
+    # This handles ```json{...}``` patterns
+    response_cleaned = re.sub(r'```json\s*\{[\s\S]*?\}\s*```', '', response_str, flags=re.MULTILINE)
+    
+    # Also remove standalone JSON blocks without markdown
+    json_match = re.search(r'\{[\s\S]*?\}', response_str)
+    
+    structured_data = None
+    if json_match:
+        json_str = json_match.group(0)
+        try:
+            data = json.loads(json_str)
+            if isinstance(data, dict) and "products" in data and "summary" in data:
+                structured_data = data
+                # Remove the JSON from the cleaned response as well
+                response_cleaned = re.sub(re.escape(json_str), '', response_cleaned)
+        except Exception as e:
+            print(f"JSON parsing error: {e}")
+    
+    # Clean up extra whitespace and newlines
+    response_cleaned = re.sub(r'\n\s*\n\s*\n+', '\n\n', response_cleaned)
+    response_cleaned = response_cleaned.strip()
+    
+    if structured_data:
+        return {
+            "summary": response_cleaned,
+            "products": structured_data.get("products", []),
+            "has_structured_data": True,
+            "json_summary": structured_data.get("summary", "")
+        }
+    else:
+        # If no valid JSON found, return entire cleaned response as summary
+        return {
+            "summary": response_cleaned, 
+            "products": [], 
+            "has_structured_data": False
+        }
 
 def render_message_content(message: Dict[str, Any]):
-    """Render chat message with proper styling"""
+    """Render chat message with proper styling and Safari-compatible audio"""
     role_class = "user-message" if message["role"] == "user" else "bot-message"
     timestamp = message.get("timestamp", datetime.now().strftime("%H:%M:%S"))
     avatar = "https://i.imgur.com/8Km9tLL.png" if message["role"] == "user" else "https://i.imgur.com/1X4rC7F.png"
 
-    # Create message HTML
     message_html = f'<div class="chat-message {role_class}">'
-    
-    # Add timestamp header
     message_html += f'<div class="message-header"><img src="{avatar}" class="avatar">' \
                     f'{"You" if message["role"] == "user" else "🌶️ Masala Mamu"} • {timestamp}</div>'
-
     message_html += '<div class="message-content">'
 
     if message["role"] == "assistant":
-        parsed_response = parse_structured_response(message["content"])
-
-        if parsed_response["products"]:
-            # Display summary
-            message_html += f"<p>{parsed_response['summary']}</p>"
+        parsed = parse_structured_response(message["content"])
+        
+        if parsed.get("has_structured_data") and parsed.get("products"):
+            # Display the complete summary (JSON structure removed, only readable text)
+            summary_text = parsed['summary']
             
-            # Display products in a more compact way
-            for product in parsed_response["products"]:
-                message_html += f'<div class="product-card">'
-                message_html += f'<div class="product-title">{product["brand"]} - {product["name"]}</div>'
-
-                if product["offers"]:
-                    sorted_offers = sorted(product["offers"], 
-                                         key=lambda x: float(re.sub(r'[^\d.]', '', x["price"])) 
-                                         if re.sub(r'[^\d.]', '', x["price"]) else float('inf'))
-                    
-                    cheapest = sorted_offers[0]
-                    most_expensive = sorted_offers[-1] if len(sorted_offers) > 1 else None
-
-                    message_html += f'<div class="product-offer product-cheapest">💚 Best: {cheapest["price"]} on {cheapest["platform"]}</div>'
-
-                    if most_expensive and most_expensive != cheapest:
-                        message_html += f'<div class="product-offer product-expensive">💸 Highest: {most_expensive["price"]} on {most_expensive["platform"]}</div>'
-                        
-                        try:
-                            savings = (float(re.sub(r'[^\d.]', '', most_expensive["price"])) -
-                                     float(re.sub(r'[^\d.]', '', cheapest["price"])))
-                            if savings > 0:
-                                message_html += f'<div class="product-offer product-savings">💡 Save ₹{savings:.0f} with {cheapest["platform"]}</div>'
-                        except ValueError:
-                            pass
-
-                    # Show all prices in compact format
-                    for offer in sorted_offers:
-                        message_html += f'<div class="product-offer">• {offer["platform"]}: {offer["price"]}</div>'
+            # Convert markdown-like formatting to HTML
+            summary_text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', summary_text)
+            summary_text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', summary_text)
+            summary_text = re.sub(r'🔥 \*\*BEST VALUE:\*\*', r'🔥 <strong>BEST VALUE:</strong>', summary_text)
+            summary_text = re.sub(r'💡 \*\*Shopping Tips:\*\*', r'💡 <strong>Shopping Tips:</strong>', summary_text)
+            
+            # Convert bullet points to HTML lists
+            lines = summary_text.split('\n')
+            processed_lines = []
+            in_list = False
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith('*   ') or line.startswith('- '):
+                    if not in_list:
+                        processed_lines.append('<ul>')
+                        in_list = True
+                    processed_lines.append(f'<li>{line[4:].strip()}</li>')
                 else:
-                    message_html += '<div class="product-offer">❌ No offers found</div>'
-                message_html += '</div>'
+                    if in_list:
+                        processed_lines.append('</ul>')
+                        in_list = False
+                    if line:
+                        processed_lines.append(f'<p>{line}</p>')
+            
+            if in_list:
+                processed_lines.append('</ul>')
+            
+            formatted_summary = ''.join(processed_lines)
+            message_html += formatted_summary
+            
+            # Render product tables
+            for product in parsed["products"]:
+                message_html += f'<div class="product-card">'
+                message_html += f'<div class="product-title">{product.get("brand", "")} - {product["name"]}</div>'
+                message_html += '<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">'
+                message_html += '<tr style="background-color: #f5f5f5;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Retailer</th><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Price</th></tr>'
+                
+                for offer in product["offers"]:
+                    quantity = offer.get('quantity', '')
+                    quantity_text = f" ({quantity})" if quantity else ""
+                    message_html += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{offer["platform"]}</td><td style="padding: 8px; border: 1px solid #ddd;">{offer["price"]}{quantity_text}</td></tr>'
+                
+                message_html += '</table></div>'
         else:
-            message_html += f"<p>{parsed_response['summary']}</p>"
+            # No structured data, render as plain text with basic formatting
+            content = parsed['summary']
+            content = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', content)
+            content = re.sub(r'\*(.+?)\*', r'<em>\1</em>', content)
+            content = content.replace('\n', '<br>')
+            message_html += f"<p>{content}</p>"
     else:
-        message_html += f"<p>{message['content']}</p>"
+        # User message
+        content = message["content"].replace('\n', '<br>')
+        message_html += f"<p>{content}</p>"
 
     message_html += '</div></div>'
-    
     st.markdown(message_html, unsafe_allow_html=True)
-
-    # Add audio if available
-    if "audio" in message and message["audio"]:
+    
+    # Handle audio with Safari compatibility
+    if "audio_data" in message and message["audio_data"]:
+        # Use Safari-compatible audio player
+        safari_player_html = create_safari_audio_player(message["audio_data"])
+        st.markdown(safari_player_html, unsafe_allow_html=True)
+    elif "audio" in message and message["audio"]:
+        # Fallback to standard Streamlit audio
         st.audio(message["audio"], format='audio/mp3')
 
 def get_chatbot_response(user_question: str) -> str:
@@ -444,19 +618,31 @@ def process_user_input(user_input: str):
     # Clear the input box by changing its key
     current_key_num = int(st.session_state.input_key.split("_")[1])
     st.session_state.input_key = f"input_{current_key_num + 1}"
-    st.session_state.input_content = "" # Clear the content as well
+    st.session_state.input_content = ""
 
     with st.spinner("🤔 Thinking..."):
         response = get_chatbot_response(user_input.strip())
     
     if response:
-        audio_bytes = text_to_speech(response)
-        st.session_state.messages.append({
+        audio_data = None
+        if st.session_state.enable_tts:
+            audio_data = text_to_speech_safari_compatible(response)
+        
+        logger.info(f"Response received: {response}")
+        logger.info(f"Audio data generated: {audio_data is not None}")
+        
+        message_data = {
             "role": "assistant",
             "content": response,
-            "timestamp": datetime.now().strftime("%H:%M:%S"),
-            "audio": audio_bytes
-        })
+            "timestamp": datetime.now().strftime("%H:%M:%S")
+        }
+        
+        if audio_data:
+            message_data["audio_data"] = audio_data
+            # Keep legacy audio for backward compatibility
+            message_data["audio"] = audio_data["audio_bytes"]
+            
+        st.session_state.messages.append(message_data)
     st.rerun()
 
 # ------------------------- Streamlit UI Layout -------------------------
@@ -476,20 +662,22 @@ with st.sidebar:
         "🔊 Enable Text-to-Speech",
         value=st.session_state.enable_tts
     )
+    
+    # Add Safari compatibility info
+    st.info("💡 **Safari Users**: If audio doesn't auto-play, click the 'Play Audio' button or use the audio controls.")
+    
     if st.button("🧹 Clear Chat", key="clear_chat_btn"):
         st.session_state.messages = []
-        st.session_state.input_key = "input_1" # Reset input key on clear
+        st.session_state.input_key = "input_1"
         st.session_state.input_content = ""
         st.rerun()
 
 # Main interface
-# Using inline style for direct control over text color
 st.markdown('<h1 style="color: #212121;">🌶️ Masala Mamu: AI Kitchen Assistant</h1>', unsafe_allow_html=True)
 st.markdown('<p style="color: #212121;"><i>Your personal shopping assistant for comparing grocery prices across India</i></p>', unsafe_allow_html=True)
 
 # Chat display
 with st.container():
-    # Add dynamic class based on whether there are messages
     container_class = "chat-container empty" if not st.session_state.messages else "chat-container"
     st.markdown(f'<div class="{container_class}">', unsafe_allow_html=True)
     
@@ -509,7 +697,7 @@ with st.container():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Scroll to bottom button (remains unchanged)
+# Scroll to bottom
 if st.session_state.messages:
     st.markdown('''<script>window.scrollTo(0, document.body.scrollHeight);</script>''', unsafe_allow_html=True)
 
@@ -518,24 +706,19 @@ st.markdown('<div class="input-bar">', unsafe_allow_html=True)
 col_input, col_voice_btn, col_ask_btn = st.columns([8, 1, 2])
 
 with col_input:
-    # Use st.session_state.input_content to manage the text area content
     user_query_input = st.text_area(
         "Type your message...",
         value=st.session_state.input_content,
-        key=st.session_state.input_key, # Key changes to reset the input
+        key=st.session_state.input_key,
         label_visibility="collapsed",
         height=70,
         max_chars=500,
         placeholder="Ask about prices, deals, or say hi!"
     )
-    # Update input_content state when text area changes
     if user_query_input != st.session_state.input_content:
         st.session_state.input_content = user_query_input
 
 with col_voice_btn:
-    # Add a class for visual feedback when listening
-    # To apply dynamic class to the button, you'd typically need a custom component or JS.
-    # For a simple visual feedback, we can use a text indicator next to the button.
     voice_clicked = st.button("🎤", key="voice_btn_fixed", help="Voice Input", use_container_width=True)
 
 with col_ask_btn:
@@ -543,13 +726,13 @@ with col_ask_btn:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Add a listening indicator next to the voice button if active
+# Listening indicator
 if st.session_state.listening:
     st.markdown("""
     <div style="
         position: fixed;
-        bottom: 8.5rem; /* Adjust based on your input bar height */
-        right: 15rem; /* Adjust to position next to the voice button */
+        bottom: 8.5rem;
+        right: 15rem;
         background-color: #fff3e0;
         color: #ff9800;
         padding: 0.5rem 1rem;
@@ -589,33 +772,24 @@ if st.session_state.listening:
     </style>
     """, unsafe_allow_html=True)
 
-
-# --- Input Handling Logic (Combined) ---
-# This ensures that both text input (Ask button/Enter) and voice input are handled in a single flow.
-
-# Handle text input (Ask button or Enter key)
+# Input Handling Logic
 if (ask_clicked or (user_query_input and st.session_state.get('enter_pressed', False))) and user_query_input.strip():
-    # Reset enter_pressed flag immediately to prevent multiple triggers
     if 'enter_pressed' in st.session_state:
         st.session_state.enter_pressed = False
     process_user_input(user_query_input)
 
-# Handle voice input
-if voice_clicked and not st.session_state.listening: # Prevent re-triggering if already listening
-    # To make the listening effect visible, we need to rerun immediately after setting listening=True
+if voice_clicked and not st.session_state.listening:
     st.session_state.listening = True
-    st.rerun() # Rerun to show the listening state visually
+    st.rerun()
 elif voice_clicked and st.session_state.listening:
-    # If the button is clicked again while listening, stop listening (optional, depends on UX)
     st.session_state.listening = False
     st.rerun()
-elif st.session_state.listening: # This block executes after the rerun triggered above
+elif st.session_state.listening:
     recognized_text = speech_to_text()
     if recognized_text:
         process_user_input(recognized_text)
 
-
-# Enter key triggers Ask (for desktop) - remains the same
+# Enter key handling
 st.markdown('''<script>
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey && document.activeElement.tagName === 'TEXTAREA') {
@@ -624,7 +798,6 @@ document.addEventListener('keydown', function(e) {
 });
 window.addEventListener('message', function(event) {
     if (event.data && event.data.isEnterPressed) {
-        // Only set the value if it's not already true to avoid unnecessary reruns
         if (!window.parent.streamlitReport.state.getComponentValue('enter_pressed')) {
             window.parent.streamlitSend({type: 'streamlit:setComponentValue', key: 'enter_pressed', value: true});
         }
@@ -632,6 +805,5 @@ window.addEventListener('message', function(event) {
 });
 </script>''', unsafe_allow_html=True)
 
-# Initialize enter_pressed in session state if not present to avoid KeyError on first load
 if 'enter_pressed' not in st.session_state:
     st.session_state.enter_pressed = False

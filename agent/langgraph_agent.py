@@ -20,11 +20,11 @@ class PriceComparisonAgent:
         )
         self.tools = [quickcompare_scraper]
         self.tool_node = ToolNode(self.tools)
-        self.app = self._build_graph()
+        self.app = self.build_graph()
 
-    def _build_graph(self) -> StateGraph:
+    def build_graph(self) -> StateGraph:
         workflow = StateGraph(AgentState)
-        workflow.add_node("agent", self._call_llm)
+        workflow.add_node("agent", self.call_llm)
         workflow.add_node("call_tool", self.tool_node)
         workflow.add_node("end_summary", lambda state: state)
         workflow.add_edge(START, "agent")
@@ -40,13 +40,13 @@ class PriceComparisonAgent:
         workflow.add_edge("end_summary", END)
         return workflow.compile()
 
-    def _get_system_prompt(self) -> str:
+    def get_system_prompt(self) -> str:
         return SYSTEM_PROMPT
 
-    async def _call_llm(self, state: AgentState) -> Dict[str, List[BaseMessage]]:
+    async def call_llm(self, state: AgentState) -> Dict[str, List[BaseMessage]]:
         messages = state["messages"]
         if len(messages) == 1 and isinstance(messages[0], HumanMessage):
-            system_message = HumanMessage(content=self._get_system_prompt())
+            system_message = HumanMessage(content=self.get_system_prompt())
             messages = [system_message] + messages
         llm_with_tools = self.llm.bind_tools(self.tools)
         response = await llm_with_tools.ainvoke(messages)
