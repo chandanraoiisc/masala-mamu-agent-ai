@@ -35,52 +35,6 @@ cp sample.env .env
 
 ### Standalone Usage
 
-#### Using the LLM Configuration (Recommended)
-
-```python
-from health_diet_agent import HealthDietAgent
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# Using OpenAI (environment variables will be used)
-agent = HealthDietAgent(
-    llm_provider="openai"
-)
-
-# Or with custom configuration
-agent = HealthDietAgent(
-    llm_provider="openai",
-    llm_config={
-        "model_name": "gpt-4-turbo-preview",
-        "temperature": 0.2
-    }
-)
-
-# Using GitHub model
-agent = HealthDietAgent(
-    llm_provider="github",
-    llm_config={
-        "model": "model-name" # Replace with actual model name
-    }
-)
-
-# Using Groq API
-agent = HealthDietAgent(
-    llm_provider="groq",
-    llm_config={
-        "model": "llama3-8b-8192",
-        "temperature": 0.2
-    }
-)
-
-# Analyze a recipe
-result = agent.analyze_nutrition("What are the macros for chicken tikka masala with rice?")
-print(result["analysis"])
-```
-
-#### Legacy Usage (Still Supported)
-
 ```python
 from health_diet_agent import HealthDietAgent
 import os
@@ -89,17 +43,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Using OpenAI
-agent = HealthDietAgent(
-    openai_api_key=os.getenv("OPENAI_API_KEY"),
-    model_provider="openai"
-)
+agent = HealthDietAgent(llm_provider="openai")
 
 # Using GitHub
-agent = HealthDietAgent(
-    model_provider="github",
-    github_token=os.getenv("GITHUB_TOKEN"),
-    model="model-name" # Replace with actual model name
-)
+agent = HealthDietAgent(llm_provider="github")
+
+# With custom configuration
+config = {"temperature": 0.2, "model_name": "gpt-4-turbo-preview"}
+agent = HealthDietAgent(llm_provider="openai", llm_config=config)
 ```
 
 ### Command Line Usage
@@ -114,32 +65,30 @@ python main.py
 python main.py --model-provider github
 
 # Using Groq API
-python main.py --model-provider groq --groq-model "llama3-8b-8192"
+python main.py --model-provider groq
 ```
 
-### Router Integration
+### Router Integration Usage
+
+You can use the agent as part of a multi-agent system with the router integration:
 
 ```python
 from router_integration import create_kitchen_assistant_with_nutrition
 
-# Create router with nutrition agent using default configuration
+# Create a kitchen assistant router with the nutrition agent
 router = create_kitchen_assistant_with_nutrition(
-    llm_provider="openai"
+    llm_provider="openai",
+    llm_config={"temperature": 0.1, "model_name": "gpt-4-turbo-preview"}
 )
 
-# Or with custom configuration
-router = create_kitchen_assistant_with_nutrition(
-    llm_provider="github",
-    llm_config={
-        "model": "model-name", # Replace with actual model name
-        "temperature": 0.1
-    }
-)
+# Route a query to the appropriate agent
+result = router.route_query("What are the macros in a chicken sandwich?")
 
-# Route queries
-result = router.route_query("What are the macros for this recipe?")
-if result["can_handle"]:
-    print(result["response"])
+# Process the result
+if result["success"]:
+    print(f"Response: {result['response']}")
+else:
+    print(f"Error: {result['reason']}")
 ```
 
 ## Architecture
@@ -159,6 +108,12 @@ if result["can_handle"]:
 - **RecipeNutrition**: Complete recipe analysis with per-serving breakdowns
 - **NutritionQuery**: Parsed user query with metadata
 
+### Router Components
+
+- **NutritionAgentRouter**: Wrapper for the HealthDietAgent that handles routing logic
+- **KitchenAssistantRouter**: Main router that manages multiple specialized agents
+- **Agent Registration**: Dynamic system for adding agents to the router
+
 ## Integration with Kitchen Assistant
 
 The agent is designed to work with a router-based kitchen assistant system:
@@ -174,6 +129,7 @@ The agent is designed to work with a router-based kitchen assistant system:
 - `get_agent_info()`: Returns agent capabilities and keywords
 - `set_context()`: Accepts context from other agents
 - `get_conversation_history()`: Shares conversation state
+- `clear_memory()`: Resets conversation history
 
 ## Example Queries
 
@@ -199,26 +155,38 @@ The agent can handle various types of nutrition queries:
 }
 ```
 
-## Testing
+## Router Response Format
 
-Run the test scripts:
-
-```bash
-# Test standalone agent
-python main.py
-
-# Test router integration
-python test_router.py
+```json
+{
+  "can_handle": true,
+  "agent_name": "NutritionAgent",
+  "response": "Detailed nutrition analysis...",
+  "success": true,
+  "conversation_history": [
+    {"role": "system", "content": "Context information"},
+    {"role": "user", "content": "User query"},
+    {"role": "assistant", "content": "Agent response"}
+  ]
+}
 ```
 
-## Dependencies
+## Testing
 
-- langchain: LLM framework and agent orchestration
-- langchain-openai: OpenAI integration
-- langchain-community: Community tools including Tavily search
-- tavily-python: Web search API
-- pydantic: Data validation and models
-- python-dotenv: Environment variable management
+Run the test suite to verify functionality:
+
+```bash
+# Test all components with OpenAI provider
+python tests.py --test all --provider openai
+
+# Test just router integration with Groq provider
+python tests.py --test router --provider groq
+
+# Test specific components
+python tests.py --test config --provider openai
+python tests.py --test agent --provider openai
+python tests.py --test comprehensive --provider openai
+```
 
 ## Future Enhancements
 
@@ -227,3 +195,4 @@ python test_router.py
 - Meal planning and nutrition goals
 - Integration with grocery price comparison
 - Recipe modification suggestions for better nutrition
+- Additional specialized agents for the kitchen assistant router

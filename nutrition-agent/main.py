@@ -57,9 +57,14 @@ def main():
         # Analyze nutrition
         result = agent.analyze_nutrition(user_input)
 
+        # Extract Macros JSON
+        macros = agent.extract_macros(result).to_dict()
+
         if result["success"]:
             logger.info("Successfully analyzed nutrition query")
             print("Agent:", result["analysis"])
+            print("\nMacros Breakdown:")
+            print(json.dumps(macros, indent=2))
         else:
             logger.error(f"Error during nutrition analysis: {result['error']}")
             print(f"Error: {result['error']}")

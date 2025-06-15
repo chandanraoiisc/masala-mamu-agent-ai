@@ -1,217 +1,298 @@
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from langchain.memory import ConversationBufferWindowMemory
-from typing import Dict, Any, Optional, List, Literal, Union
-import json
+# filepath: /Users/brbharad/Desktop/IISc/Course Work/Deep Learning/Project/nutrition-agent/health_diet_agent.py
+
+"""
+Health Diet Agent Module
+
+This module implements the Health Diet Agent which analyzes recipes and ingredients
+for their nutritional content and provides macronutrient breakdowns.
+"""
+
 import os
 import re
-from models import NutritionQuery, RecipeNutrition, MacroNutrient, IngredientNutrition
+import json
+from typing import Dict, List, Any, Optional
+from langchain.agents import AgentExecutor, create_openai_functions_agent
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.schema import SystemMessage, HumanMessage, AIMessage
+from langchain.schema.language_model import BaseLanguageModel
 from tools import create_nutrition_search_tools
 from llm_config import get_llm
+from models import MacroNutrient, IngredientNutrition, RecipeNutrition
 from utils.logger import setup_logger
 
 
+# Define system prompt for the health diet agent
+NUTRITION_SYSTEM_PROMPT = """
+You are a specialized nutrition assistant that provides accurate macronutrient information
+for food items, ingredients, and recipes.
+
+Your responsibilities:
+1. Analyze user questions about nutrition facts for specific foods or recipes
+2. Use search tools to gather accurate nutritional data
+3. Interpret and summarize search results into structured macronutrient breakdowns
+4. Present nutrition information in a helpful, easy-to-understand format
+5. When analyzing recipes, consider the cooking methods and how they affect nutrition
+6. Provide per-serving information when applicable
+
+When presenting nutrition information, use this structure:
+- Calories: [value] kcal
+- Protein: [value]g
+- Carbohydrates: [value]g
+- Fat: [value]g
+- Fiber: [value]g (if available)
+- Sugar: [value]g (if available)
+
+Always use the appropriate tools to search for accurate information before providing
+an answer. If information is inconsistent across sources, provide a reasonable estimate
+and note the discrepancy.
+"""
+
+
 class HealthDietAgent:
-    """LangChain-based Health & Diet Agent for nutrition analysis."""
+    """
+    Agent for analyzing nutrition information of recipes and ingredients.
+    Uses LLM and nutrition search tools to provide detailed nutrition breakdowns.
+    """
 
     def __init__(
         self,
-        llm_provider: Literal["openai", "github", "groq"] = "openai",
+        llm_provider: str = "openai",
         llm_config: Optional[Dict[str, Any]] = None,
+        temperature: float = 0.1
     ):
-        # Setup logger
-        self.logger = setup_logger(__name__, log_level="DEBUG")
-        # Prepare config dict based on the provider
+        """
+        Initialize the Health Diet Agent.
+
+        Args:
+            llm_provider: The LLM provider to use ('openai', 'github', or 'groq')
+            llm_config: Configuration parameters for the LLM provider
+            temperature: Temperature setting for the LLM (used if not in llm_config)
+        """
+        self.logger = setup_logger(__name__)
+        self.logger.info(f"Initializing Health Diet Agent with {llm_provider} provider")
+
+        # Process llm_config
         config = llm_config or {}
+        if "temperature" not in config and temperature != 0.1:
+            config["temperature"] = temperature
 
-        self.logger.info(f"Initializing HealthDietAgent with {llm_provider} provider")
-
-        # Get the LLM from the configuration provider
+        # Initialize the LLM
         self.llm = get_llm(llm_provider, config)
+        self.logger.info("LLM initialized successfully")
 
+        # Create nutrition search tools
         self.tools = create_nutrition_search_tools()
+        self.logger.info(f"Created {len(self.tools)} nutrition search tools")
 
-        # Create agent prompt
-        self.prompt = ChatPromptTemplate.from_messages([
-            SystemMessage(content=self._get_system_prompt()),
-            MessagesPlaceholder(variable_name="chat_history"),
-            HumanMessage(content="{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad")
+        # Initialize conversation memory
+        self.conversation_history = []
+
+        # Initialize the agent
+        self._initialize_agent()
+
+    def _initialize_agent(self):
+        """Initialize the LangChain agent with tools and LLM."""
+        self.logger.info("Initializing nutrition analysis agent")
+
+        # Create the agent with the system message and tools
+        prompt = ChatPromptTemplate.from_messages([
+            SystemMessage(content=NUTRITION_SYSTEM_PROMPT),
+            ("human", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
 
-        # Create agent
-        self.agent = create_openai_functions_agent(
-            llm=self.llm,
-            tools=self.tools,
-            prompt=self.prompt
-        )
+        # Create the agent
+        agent = create_openai_functions_agent(self.llm, self.tools, prompt)
 
-        # Create agent executor with memory
-        self.memory = ConversationBufferWindowMemory(
-            memory_key="chat_history",
-            return_messages=True,
-            k=10
-        )
-
+        # Create the executor
         self.agent_executor = AgentExecutor(
-            agent=self.agent,
+            agent=agent,
             tools=self.tools,
-            memory=self.memory,
-            verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=5
+            verbose=False
         )
 
-    def _get_system_prompt(self) -> str:
-        """Get the system prompt for the nutrition agent."""
-        return """
-        You are a specialized Health & Diet Agent that analyzes recipes and ingredients for nutritional information.
+        self.logger.info("Agent initialization complete")
 
-        Your capabilities:
-        1. Analyze complete recipes for total nutritional content
-        2. Break down individual ingredients and their macros
-        3. Calculate per-serving nutrition information
-        4. Consider cooking methods that affect nutrition
-        5. Provide detailed macro breakdowns (calories, protein, carbs, fat, fiber, sugar, sodium)
-
-        Instructions:
-        - Always search for current, accurate nutrition data using available tools
-        - When analyzing recipes, extract individual ingredients first
-        - Calculate total nutrition by summing individual ingredients
-        - Account for cooking methods that may change nutritional content (e.g., oil absorption in frying)
-        - Provide both total recipe nutrition and per-serving breakdowns
-        - Be precise with units (grams, cups, etc.)
-        - If user asks for individual ingredient breakdown, provide detailed analysis for each item
-
-        Response Format:
-        - Start with a summary of total macros for the dish
-        - If requested, provide individual ingredient breakdowns
-        - Always specify serving size assumptions
-        - Mention any important nutritional notes or health considerations
-
-        Remember: You're part of a larger kitchen assistant system, so format responses to be easily integrated with other agents.
+    def analyze_nutrition(self, user_query: str) -> Dict[str, Any]:
         """
+        Analyze nutrition information based on user query.
 
-    def parse_user_input(self, user_input: str) -> NutritionQuery:
-        """Parse user input to determine query type and extract relevant information."""
-        self.logger.debug(f"Parsing user input: {user_input}")
-        user_input_lower = user_input.lower()
+        Args:
+            user_query: User's query about recipe or ingredients
 
-        # Determine if it's asking for individual breakdown
-        include_breakdown = any(phrase in user_input_lower for phrase in [
-            "each ingredient", "individual", "breakdown", "separate", "per ingredient"
-        ])
-
-        # Determine query type
-        if any(phrase in user_input_lower for phrase in ["recipe", "dish", "make", "cook"]):
-            query_type = "recipe"
-        else:
-            query_type = "ingredients"
-
-        # Extract serving information
-        servings = 1
-        serving_match = re.search(r'(\d+)\s*(?:serving|portion|people)', user_input_lower)
-        if serving_match:
-            servings = int(serving_match.group(1))
-
-        return NutritionQuery(
-            query_type=query_type,
-            content=user_input,
-            servings=servings,
-            include_individual_breakdown=include_breakdown
-        )
-
-    def analyze_nutrition(self, user_input: str) -> Dict[str, Any]:
-        """Main method to analyze nutrition based on user input."""
-        self.logger.info(f"Analyzing nutrition query: {user_input[:50]}...")
-        query = self.parse_user_input(user_input)
-        self.logger.debug(f"Parsed query: {query}")
-
-        # Enhance the prompt with structured information
-        enhanced_input = f"""
-        Analyze the nutrition for the following:
-
-        Query Type: {query.query_type}
-        Content: {query.content}
-        Servings: {query.servings}
-        Include Individual Breakdown: {query.include_individual_breakdown}
-
-        Please provide comprehensive nutritional analysis including:
-        1. Total macros for the entire dish/recipe
-        2. Per-serving macros (divide by {query.servings} servings)
-        3. {"Individual ingredient breakdown" if query.include_individual_breakdown else "Summary only"}
-
-        Use the available tools to search for accurate, current nutrition data.
+        Returns:
+            Dictionary with analysis results or error information
         """
+        self.logger.info(f"Processing nutrition analysis for query: {user_query}")
 
         try:
-            self.logger.info("Invoking nutrition agent executor")
-            result = self.agent_executor.invoke({"input": enhanced_input})
-            self.logger.info("Successfully generated nutrition analysis")
+            # Run the agent to get nutrition analysis
+            result = self.agent_executor.invoke({"input": user_query})
+
+            self.logger.info("Successfully completed nutrition analysis")
             return {
                 "success": True,
                 "analysis": result["output"],
-                "query_info": query.dict()
+                "raw_result": result
             }
         except Exception as e:
             self.logger.error(f"Error during nutrition analysis: {str(e)}")
             return {
                 "success": False,
-                "error": str(e),
-                "query_info": query.dict()
+                "error": f"Failed to analyze nutrition: {str(e)}",
+                "query": user_query
             }
 
-    def get_conversation_history(self) -> List[Dict[str, str]]:
-        """Get the conversation history for integration with router."""
-        messages = self.memory.chat_memory.messages
-        history = []
-        for msg in messages:
-            if isinstance(msg, HumanMessage):
-                history.append(HumanMessage(content=msg.content))
-            elif isinstance(msg, AIMessage):
-                history.append(AIMessage(content=msg.content))
-        return history
+    def extract_macros(self, analysis_result: Dict[str, Any]) -> Optional[MacroNutrient]:
+        """
+        Extract structured macronutrient data from analysis result.
 
-    def clear_memory(self):
-        """Clear conversation memory."""
-        self.logger.info("Clearing conversation memory")
-        self.memory.clear()
+        Args:
+            analysis_result: The result from nutrition analysis
 
-    def set_context(self, context: str):
-        """Set additional context for the agent (useful for router integration)."""
-        self.logger.debug(f"Setting additional context: {context[:50]}...")
-        self.memory.chat_memory.add_user_message(f"Context: {context}")
+        Returns:
+            MacroNutrient object or None if extraction fails
+        """
+        try:
+            self.logger.info("Extracting macronutrient data from analysis result")
 
-    # Router-friendly methods
-    def can_handle_query(self, query: str) -> bool:
-        """Determine if this agent can handle the given query."""
-        nutrition_keywords = [
-            "nutrition", "calories", "macros", "protein", "carbs", "fat",
-            "diet", "healthy", "nutritional", "ingredients nutrition",
-            "recipe nutrition", "food nutrition", "macro breakdown"
-        ]
+            # Ask the LLM to extract structured data from the analysis
+            extraction_prompt = f"""
+            Extract the precise macronutrient values from this nutrition analysis:
 
-        query_lower = query.lower()
-        can_handle = any(keyword in query_lower for keyword in nutrition_keywords)
-        self.logger.debug(f"Query check: '{query[:30]}...' - Can handle: {can_handle}")
-        return can_handle
+            {analysis_result['analysis']}
+
+            Return only a valid JSON object with these fields (include only if values are present):
+            - calories (number)
+            - protein (number, in grams)
+            - carbohydrates (number, in grams)
+            - fat (number, in grams)
+            - fiber (number, in grams, if available)
+            - sugar (number, in grams, if available)
+            - sodium (number, in mg, if available)
+            """
+
+            messages = [
+                SystemMessage(content="You are a data extraction assistant that extracts structured data from text."),
+                HumanMessage(content=extraction_prompt)
+            ]
+
+            response = self.llm.invoke(messages)
+
+            # Extract JSON from response
+            # Find JSON in the response
+            json_match = re.search(r'```json\n(.*?)\n```', response.content, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                json_str = response.content
+
+            # Clean up any non-JSON parts
+            json_str = re.sub(r'^[^{]*', '', json_str)
+            json_str = re.sub(r'[^}]*$', '', json_str)
+
+            # Parse JSON data
+            macro_data = json.loads(json_str)
+
+            # Create MacroNutrient object
+            macros = MacroNutrient(**macro_data)
+
+            self.logger.info(f"Successfully extracted macronutrient data: {macros.to_dict()}")
+            return macros
+
+        except Exception as e:
+            self.logger.error(f"Failed to extract macronutrient data: {str(e)}")
+            return None
 
     def get_agent_info(self) -> Dict[str, Any]:
-        """Return agent information for router registration."""
+        """
+        Return information about the agent's capabilities.
+        Used by router systems to determine which agent to route queries to.
+
+        Returns:
+            Dictionary with agent information
+        """
+        self.logger.info("Retrieving agent information")
         return {
-            "name": "health_diet_agent",
-            "description": "Analyzes recipes and ingredients for nutritional information including macros breakdown",
+            "name": "NutritionAgent",
+            "description": "Nutrition analysis for recipes and ingredients",
             "capabilities": [
                 "Recipe nutrition analysis",
-                "Individual ingredient macro breakdown",
-                "Calorie calculation",
-                "Macro nutrient analysis (protein, carbs, fat, fiber)",
-                "Per-serving nutrition calculation",
-                "Cooking method impact on nutrition"
+                "Ingredient macro breakdown",
+                "Per-serving calculations",
+                "Cooking method impact analysis"
             ],
             "keywords": [
-                "nutrition", "calories", "macros", "protein", "carbs",
-                "fat", "diet", "healthy", "nutritional"
+                "nutrition", "calories", "macros", "protein", "carbs", "fat",
+                "recipe", "ingredient", "diet", "food", "serving", "meal"
             ]
         }
+
+    def can_handle_query(self, query: str) -> bool:
+        """
+        Determine if this agent can handle the given query.
+        Used by router systems to determine which agent to route queries to.
+
+        Args:
+            query: User query string
+
+        Returns:
+            True if this agent can handle the query, False otherwise
+        """
+        self.logger.info(f"Evaluating if agent can handle query: '{query}'")
+
+        # List of nutrition-related keywords
+        nutrition_keywords = [
+            "nutrition", "nutritional", "calories", "caloric", "calorie",
+            "protein", "proteins", "carb", "carbs", "carbohydrate", "carbohydrates",
+            "fat", "fats", "macro", "macros", "macronutrient", "macronutrients",
+            "diet", "dietary", "serving", "servings", "recipe", "recipes",
+            "ingredient", "ingredients", "food", "meal", "meals", "dish", "dishes",
+            "vitamin", "vitamins", "mineral", "minerals", "fiber", "sugar", "sodium",
+            "healthy", "unhealthy"
+        ]
+
+        # Check if query contains nutrition keywords
+        query_lower = query.lower()
+        for keyword in nutrition_keywords:
+            if keyword in query_lower:
+                self.logger.info(f"Agent can handle query (matched keyword: {keyword})")
+                return True
+
+        # If no keywords match, the agent cannot handle this query
+        self.logger.info("Agent cannot handle query (no matching keywords)")
+        return False
+
+    def set_context(self, context_str: str) -> None:
+        """
+        Set context information for the agent.
+        This allows the agent to have access to information from previous interactions
+        or other agents in a multi-agent system.
+
+        Args:
+            context_str: Context information as a string
+        """
+        self.logger.info(f"Setting context for agent: {context_str[:50]}...")
+        # Store context in conversation history
+        self.conversation_history.append({
+            "role": "system",
+            "content": f"Context: {context_str}"
+        })
+
+    def get_conversation_history(self) -> List[Dict[str, str]]:
+        """
+        Get the agent's conversation history.
+        Used by router systems to maintain context across agent switches.
+
+        Returns:
+            List of conversation entries
+        """
+        self.logger.info(f"Retrieving conversation history ({len(self.conversation_history)} entries)")
+        return self.conversation_history
+
+    def clear_memory(self) -> None:
+        """
+        Clear the agent's conversation memory.
+        """
+        self.logger.info("Clearing agent conversation memory")
+        self.conversation_history = []
