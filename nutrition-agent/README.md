@@ -9,6 +9,8 @@ A LangChain-based health and diet agent that analyzes recipes and ingredients fo
 - **Per-Serving Calculations**: Automatically calculates nutrition per serving
 - **Web Search Integration**: Uses DuckDuckGo Search for current, accurate nutrition data
 - **Cooking Method Awareness**: Considers how cooking methods affect nutrition
+- **Database Storage**: Stores nutrition inquiries in SQLite database for historical tracking
+- **Visualization**: Plot macro trends over time to track nutrition goals
 - **Router Integration**: Designed to work with LangChain router nodes
 - **Conversational Memory**: Maintains context across interactions
 - **Multiple LLM Support**: Works with OpenAI, GitHub models, Groq API, and is easily extensible to other providers
@@ -51,6 +53,12 @@ agent = HealthDietAgent(llm_provider="github")
 # With custom configuration
 config = {"temperature": 0.2, "model_name": "gpt-4-turbo-preview"}
 agent = HealthDietAgent(llm_provider="openai", llm_config=config)
+
+# Get nutrition analysis
+result = agent.analyze_nutrition("What are the macros in a chicken sandwich?")
+macros = agent.extract_macros(result)
+
+# The agent automatically saves the inquiry to the database for tracking
 ```
 
 ### Command Line Usage
@@ -66,6 +74,37 @@ python main.py --model-provider github
 
 # Using Groq API
 python main.py --model-provider groq
+
+# Disable database storage
+python main.py --no-db
+
+# View nutrition history
+python main.py --history
+
+# Show macro trends for the past 30 days
+python main.py --trends 30
+
+# Delete a specific nutrition record
+python main.py --delete 123
+```
+
+### Visualization
+
+You can visualize your nutrition data using the dedicated visualization script:
+
+```bash
+# Generate and display all plots
+python visualize.py
+
+# Generate specific type of visualization
+python visualize.py --type trends
+python visualize.py --type distribution
+
+# Analyze data from the past 60 days
+python visualize.py --days 60
+
+# Save plots to directory instead of displaying
+python visualize.py --save ./nutrition_plots
 ```
 
 ### Router Integration Usage
@@ -99,6 +138,8 @@ else:
 - **LLMConfig**: Platform-agnostic configuration for different LLM providers
 - **NutritionSearchTool**: Web search tools for nutrition data
 - **Models**: Pydantic models for structured data
+- **Database**: SQLite database for storing nutrition inquiries and results
+- **Visualization**: Matplotlib-based visualization of nutrition trends
 - **Router Integration**: Interface for multi-agent systems
 
 ### Data Models

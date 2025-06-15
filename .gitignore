@@ -76,3 +76,7 @@ lc_logs/
 
 # Other
 *.log
+
+# Database files
+*.sqlite3
+db/

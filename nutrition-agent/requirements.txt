@@ -8,3 +8,5 @@ pydantic
 requests
 python-dotenv
 langchain-github-llm
+matplotlib
+pandas

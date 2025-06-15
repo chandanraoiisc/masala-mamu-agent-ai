@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 import json
+from datetime import datetime
 
 
 class MacroNutrient(BaseModel):
@@ -41,3 +42,27 @@ class NutritionQuery(BaseModel):
     content: str = Field(description="Recipe description or ingredient list")
     servings: Optional[int] = Field(default=1, description="Number of servings (if applicable)")
     include_individual_breakdown: bool = Field(default=False, description="Whether to include individual ingredient breakdown")
+
+
+# Database-related models
+class NutritionRecord(BaseModel):
+    """A record of a nutrition inquiry stored in the database."""
+    id: int = Field(description="Unique identifier for the nutrition record")
+    query_text: str = Field(description="Original query text from the user")
+    query_type: str = Field(description="Type of query: 'recipe' or 'ingredients'")
+    timestamp: datetime = Field(description="Timestamp of when the inquiry was made")
+    user_id: str = Field(default="anonymous", description="User identifier")
+    recipe_name: Optional[str] = Field(default=None, description="Name of the recipe if applicable")
+    servings: int = Field(default=1, description="Number of servings")
+    macros: MacroNutrient = Field(description="Nutritional information")
+    ingredients: Optional[List[IngredientNutrition]] = Field(default=None, description="Individual ingredient breakdown if available")
+
+
+class MacroTrend(BaseModel):
+    """Daily macro consumption trends."""
+    date: str = Field(description="Date of the records (YYYY-MM-DD format)")
+    total_calories: float = Field(default=0, description="Total calories for the day")
+    total_protein: float = Field(default=0, description="Total protein for the day (g)")
+    total_carbs: float = Field(default=0, description="Total carbohydrates for the day (g)")
+    total_fat: float = Field(default=0, description="Total fat for the day (g)")
+    record_count: int = Field(default=0, description="Number of nutrition records for the day")

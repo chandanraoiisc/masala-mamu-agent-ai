@@ -15,10 +15,13 @@ from langchain.agents import AgentExecutor, create_openai_functions_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 from langchain.schema.language_model import BaseLanguageModel
-from tools import create_nutrition_search_tools
+from langchain.tools import Tool
+from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
 from llm_config import get_llm
-from models import MacroNutrient, IngredientNutrition, RecipeNutrition
+from models import MacroNutrient, IngredientNutrition, RecipeNutrition, NutritionRecord
 from utils.logger import setup_logger
+import db
+from tools import create_nutrition_search_tools
 
 
 # Define system prompt for the health diet agent
@@ -58,7 +61,8 @@ class HealthDietAgent:
         self,
         llm_provider: str = "openai",
         llm_config: Optional[Dict[str, Any]] = None,
-        temperature: float = 0.1
+        temperature: float = 0.1,
+        enable_db: bool = True
     ):
         """
         Initialize the Health Diet Agent.
@@ -67,6 +71,7 @@ class HealthDietAgent:
             llm_provider: The LLM provider to use ('openai', 'github', or 'groq')
             llm_config: Configuration parameters for the LLM provider
             temperature: Temperature setting for the LLM (used if not in llm_config)
+            enable_db: Whether to enable database storage of nutrition inquiries
         """
         self.logger = setup_logger(__name__)
         self.logger.info(f"Initializing Health Diet Agent with {llm_provider} provider")
@@ -80,12 +85,19 @@ class HealthDietAgent:
         self.llm = get_llm(llm_provider, config)
         self.logger.info("LLM initialized successfully")
 
-        # Create nutrition search tools
+        # Create nutrition search tools using the tools module
+        self.logger.info("Creating nutrition search tools")
         self.tools = create_nutrition_search_tools()
         self.logger.info(f"Created {len(self.tools)} nutrition search tools")
 
         # Initialize conversation memory
         self.conversation_history = []
+
+        # Initialize database storage if enabled
+        self.enable_db = enable_db
+        if self.enable_db:
+            db.init_db()
+            self.logger.info("Database initialized for nutrition record storage")
 
         # Initialize the agent
         self._initialize_agent()
@@ -204,6 +216,224 @@ class HealthDietAgent:
             self.logger.error(f"Failed to extract macronutrient data: {str(e)}")
             return None
 
+    def extract_recipe_data(self, user_query: str, analysis_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract structured recipe data from analysis results.
+
+        Args:
+            user_query: Original user query
+            analysis_result: The result from nutrition analysis
+
+        Returns:
+            Dictionary with recipe data
+        """
+        try:
+            self.logger.info("Extracting recipe data from analysis result")
+
+            # Ask LLM to extract recipe information
+            extraction_prompt = f"""
+            Extract the recipe information from this user query and nutrition analysis:
+
+            USER QUERY: {user_query}
+
+            NUTRITION ANALYSIS: {analysis_result['analysis']}
+
+            Extract the following information and return as JSON:
+            1. recipe_name: The name of the recipe or dish
+            2. query_type: "recipe" if this is a complete dish, or "ingredients" if just a list of ingredients
+            3. servings: Number of servings mentioned (default to 1 if not specified)
+            4. ingredients: Array of ingredient names mentioned (if available)
+            """
+
+            messages = [
+                SystemMessage(content="You are a data extraction assistant that extracts structured data from text."),
+                HumanMessage(content=extraction_prompt)
+            ]
+
+            response = self.llm.invoke(messages)
+
+            # Extract JSON from response
+            json_match = re.search(r'```json\n(.*?)\n```', response.content, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                json_str = response.content
+
+            # Clean up any non-JSON parts
+            json_str = re.sub(r'^[^{]*', '', json_str)
+            json_str = re.sub(r'[^}]*$', '', json_str)
+
+            # Parse JSON data
+            recipe_data = json.loads(json_str)
+
+            self.logger.info(f"Successfully extracted recipe data: {recipe_data}")
+            return recipe_data
+
+        except Exception as e:
+            self.logger.error(f"Failed to extract recipe data: {str(e)}")
+            return {
+                "recipe_name": "Unknown",
+                "query_type": "ingredients",
+                "servings": 1,
+                "ingredients": []
+            }
+
+    def save_to_db(self, user_query: str, analysis_result: Dict[str, Any], macros: MacroNutrient) -> Optional[int]:
+        """
+        Save nutrition inquiry to the database.
+
+        Args:
+            user_query: Original user query
+            analysis_result: The result from nutrition analysis
+            macros: Extracted macronutrient information
+
+        Returns:
+            ID of the saved record or None if saving failed
+        """
+        if not self.enable_db:
+            self.logger.info("Database storage is disabled, skipping save")
+            return None
+
+        try:
+            # Extract recipe information
+            recipe_data = self.extract_recipe_data(user_query, analysis_result)
+
+            # Save to database
+            record_id = db.save_nutrition_inquiry(
+                query_text=user_query,
+                query_type=recipe_data.get('query_type', 'ingredients'),
+                macros=macros,
+                raw_analysis=analysis_result,
+                recipe_name=recipe_data.get('recipe_name'),
+                servings=recipe_data.get('servings', 1),
+                ingredients=[{"ingredient": ing, "amount": "unknown"} for ing in recipe_data.get('ingredients', [])],
+                user_id='anonymous'  # For future multi-user support
+            )
+
+            self.logger.info(f"Saved nutrition inquiry to database with ID {record_id}")
+            return record_id
+
+        except Exception as e:
+            self.logger.error(f"Failed to save nutrition inquiry to database: {str(e)}")
+            return None
+
+    def get_nutrition_history(self, user_id: str = 'anonymous', limit: int = 10) -> List[NutritionRecord]:
+        """
+        Get nutrition inquiry history for a user.
+
+        Args:
+            user_id: ID of the user
+            limit: Maximum number of records to return
+
+        Returns:
+            List of nutrition inquiry records
+        """
+        if not self.enable_db:
+            self.logger.info("Database is disabled, cannot retrieve history")
+            return []
+
+        try:
+            # Get records from database
+            records = db.get_nutrition_history(user_id=user_id, limit=limit)
+
+            # Convert to NutritionRecord objects
+            nutrition_records = []
+            for record in records:
+                # Create MacroNutrient object
+                macros = MacroNutrient(
+                    calories=record.get('calories'),
+                    protein=record.get('protein'),
+                    carbohydrates=record.get('carbohydrates'),
+                    fat=record.get('fat'),
+                    fiber=record.get('fiber'),
+                    sugar=record.get('sugar'),
+                    sodium=record.get('sodium')
+                )
+
+                # Create NutritionRecord object
+                nutrition_record = NutritionRecord(
+                    id=record.get('id'),
+                    query_text=record.get('query_text'),
+                    query_type=record.get('query_type'),
+                    timestamp=record.get('timestamp'),
+                    user_id=user_id,
+                    recipe_name=record.get('recipe_name'),
+                    servings=record.get('servings', 1),
+                    macros=macros,
+                    ingredients=record.get('ingredients', [])
+                )
+
+                nutrition_records.append(nutrition_record)
+
+            self.logger.info(f"Retrieved {len(nutrition_records)} nutrition records")
+            return nutrition_records
+
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve nutrition history: {str(e)}")
+            return []
+
+    def get_macro_trends(self, user_id: str = 'anonymous', days: int = 30) -> Dict[str, Any]:
+        """
+        Get macro consumption trends over time.
+
+        Args:
+            user_id: ID of the user
+            days: Number of days to look back
+
+        Returns:
+            Dictionary with trend data for plotting
+        """
+        if not self.enable_db:
+            self.logger.info("Database is disabled, cannot retrieve trends")
+            return {"error": "Database is disabled"}
+
+        try:
+            # Get trend data from database
+            trends = db.get_macro_trends(user_id=user_id, days=days)
+
+            # Format data for plotting
+            dates = [trend.get('record_date') for trend in trends]
+            calories = [trend.get('total_calories', 0) for trend in trends]
+            protein = [trend.get('total_protein', 0) for trend in trends]
+            carbs = [trend.get('total_carbs', 0) for trend in trends]
+            fat = [trend.get('total_fat', 0) for trend in trends]
+
+            self.logger.info(f"Retrieved macro trends for {len(trends)} days")
+            return {
+                "dates": dates,
+                "calories": calories,
+                "protein": protein,
+                "carbohydrates": carbs,
+                "fat": fat
+            }
+
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve macro trends: {str(e)}")
+            return {"error": str(e)}
+
+    def delete_nutrition_record(self, record_id: int) -> bool:
+        """
+        Delete a nutrition record from the database.
+
+        Args:
+            record_id: ID of the record to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.enable_db:
+            self.logger.info("Database is disabled, cannot delete record")
+            return False
+
+        try:
+            result = db.delete_nutrition_record(record_id)
+            self.logger.info(f"Deleted nutrition record {record_id}: {result}")
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Failed to delete nutrition record: {str(e)}")
+            return False
+
     def get_agent_info(self) -> Dict[str, Any]:
         """
         Return information about the agent's capabilities.
@@ -220,11 +450,13 @@ class HealthDietAgent:
                 "Recipe nutrition analysis",
                 "Ingredient macro breakdown",
                 "Per-serving calculations",
-                "Cooking method impact analysis"
+                "Cooking method impact analysis",
+                "Nutrition history tracking and visualization"
             ],
             "keywords": [
                 "nutrition", "calories", "macros", "protein", "carbs", "fat",
-                "recipe", "ingredient", "diet", "food", "serving", "meal"
+                "recipe", "ingredient", "diet", "food", "serving", "meal",
+                "history", "tracking", "trends"
             ]
         }
 
@@ -249,7 +481,7 @@ class HealthDietAgent:
             "diet", "dietary", "serving", "servings", "recipe", "recipes",
             "ingredient", "ingredients", "food", "meal", "meals", "dish", "dishes",
             "vitamin", "vitamins", "mineral", "minerals", "fiber", "sugar", "sodium",
-            "healthy", "unhealthy"
+            "healthy", "unhealthy", "history", "track", "tracking", "trend", "trends"
         ]
 
         # Check if query contains nutrition keywords
