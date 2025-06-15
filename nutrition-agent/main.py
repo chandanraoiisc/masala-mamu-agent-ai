@@ -105,7 +105,7 @@ def main():
         logger.info(f"Processing user query: {user_input}")
         print("\nAnalyzing nutrition... This may take a moment.\n")
 
-        # Analyze nutrition
+        # Analyze nutrition (now with integrated DB save)
         result = agent.analyze_nutrition(user_input)
 
         if not result["success"]:
@@ -113,18 +113,12 @@ def main():
             print(f"Error: {result['error']}")
             continue
 
-        # Extract Macros JSON
-        macros = agent.extract_macros(result)
+        # Get macros from the result
+        macros = result["macros"]
         if not macros:
             logger.error("Failed to extract macros from analysis")
             print("Error: Could not extract macronutrients from the analysis.")
             continue
-
-        # Save to database if enabled
-        if not args.no_db:
-            record_id = agent.save_to_db(user_input, result, macros)
-            if record_id:
-                logger.info(f"Saved nutrition inquiry to database with ID {record_id}")
 
         # Display results
         logger.info("Successfully analyzed nutrition query")

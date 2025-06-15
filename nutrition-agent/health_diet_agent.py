@@ -128,12 +128,13 @@ class HealthDietAgent:
     def analyze_nutrition(self, user_query: str) -> Dict[str, Any]:
         """
         Analyze nutrition information based on user query.
+        If database is enabled, saves the results to the database.
 
         Args:
             user_query: User's query about recipe or ingredients
 
         Returns:
-            Dictionary with analysis results or error information
+            Dictionary with analysis results, macros, and error information
         """
         self.logger.info(f"Processing nutrition analysis for query: {user_query}")
 
@@ -141,18 +142,37 @@ class HealthDietAgent:
             # Run the agent to get nutrition analysis
             result = self.agent_executor.invoke({"input": user_query})
 
-            self.logger.info("Successfully completed nutrition analysis")
-            return {
+            analysis_result = {
                 "success": True,
                 "analysis": result["output"],
                 "raw_result": result
             }
+
+            # Extract macronutrient data
+            macros = self.extract_macros(analysis_result)
+
+            # Save to database if enabled and macros were extracted successfully
+            record_id = None
+            if macros and self.enable_db:
+                record_id = self.save_to_db(user_query, analysis_result, macros)
+                if record_id:
+                    self.logger.info(f"Saved nutrition inquiry to database with ID {record_id}")
+
+            # Add macros and record_id to the result
+            analysis_result["macros"] = macros
+            analysis_result["record_id"] = record_id
+
+            self.logger.info("Successfully completed nutrition analysis")
+            return analysis_result
+
         except Exception as e:
             self.logger.error(f"Error during nutrition analysis: {str(e)}")
             return {
                 "success": False,
                 "error": f"Failed to analyze nutrition: {str(e)}",
-                "query": user_query
+                "query": user_query,
+                "macros": None,
+                "record_id": None
             }
 
     def extract_macros(self, analysis_result: Dict[str, Any]) -> Optional[MacroNutrient]:
