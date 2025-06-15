@@ -235,19 +235,26 @@ def get_nutrition_history(
         for row in rows:
             record = dict(row)
 
-            # Get ingredients for recipe records
-            if record['query_type'] == 'recipe':
-                cursor.execute(
-                    '''
-                    SELECT * FROM ingredient_records
-                    WHERE nutrition_record_id = (
-                        SELECT id FROM nutrition_records WHERE inquiry_id = ?
-                    )
-                    ''',
-                    (record['id'],)
-                )
-                ingredients = [dict(ing) for ing in cursor.fetchall()]
-                record['ingredients'] = ingredients
+            # Get ingredients for all record types - both recipes and ingredients
+            cursor.execute(
+                '''
+                SELECT
+                    ir.id, ir.nutrition_record_id, ir.ingredient_name,
+                    ir.amount, ir.calories, ir.protein, ir.carbohydrates,
+                    ir.fat, ir.fiber, ir.sugar, ir.sodium
+                FROM ingredient_records ir
+                JOIN nutrition_records nr ON ir.nutrition_record_id = nr.id
+                WHERE nr.inquiry_id = ?
+                ''',
+                (record['id'],)
+            )
+            ingredients = [dict(ing) for ing in cursor.fetchall()]
+
+            # Map the database field names to the expected model field names
+            for ing in ingredients:
+                ing['ingredient'] = ing.pop('ingredient_name', '')
+
+            record['ingredients'] = ingredients
 
             history.append(record)
 

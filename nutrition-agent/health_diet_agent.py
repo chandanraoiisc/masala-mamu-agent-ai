@@ -350,6 +350,29 @@ class HealthDietAgent:
                     sodium=record.get('sodium')
                 )
 
+                # Format ingredients data if present
+                ingredients_list = []
+                if 'ingredients' in record and record['ingredients']:
+                    for ing in record['ingredients']:
+                        # Create ingredient macros
+                        ing_macros = MacroNutrient(
+                            calories=ing.get('calories'),
+                            protein=ing.get('protein'),
+                            carbohydrates=ing.get('carbohydrates'),
+                            fat=ing.get('fat'),
+                            fiber=ing.get('fiber'),
+                            sugar=ing.get('sugar'),
+                            sodium=ing.get('sodium')
+                        )
+
+                        # Create ingredient nutrition object
+                        ing_nutrition = IngredientNutrition(
+                            ingredient=ing.get('ingredient_name', ''),
+                            amount=ing.get('amount', ''),
+                            macros=ing_macros
+                        )
+                        ingredients_list.append(ing_nutrition)
+
                 # Create NutritionRecord object
                 nutrition_record = NutritionRecord(
                     id=record.get('id'),
@@ -360,7 +383,7 @@ class HealthDietAgent:
                     recipe_name=record.get('recipe_name'),
                     servings=record.get('servings', 1),
                     macros=macros,
-                    ingredients=record.get('ingredients', [])
+                    ingredients=ingredients_list
                 )
 
                 nutrition_records.append(nutrition_record)
