@@ -12,16 +12,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class PriceComparisonAgent:
-    """Fixed agent class for price comparison using LangChain's agentic framework and Gemini."""
-    
-    def __init__(self, google_api_key: str, model_name: str = "gemini-2.0-flash"):
-        """
-        Initialize the price comparison agent.
         
-        Args:
-            google_api_key (str): Google API key for Gemini
-            model_name (str): Gemini model name to use
-        """
+    def __init__(self, google_api_key: str, model_name: str = "gemini-2.0-flash"):
+
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
             temperature=0.3,
@@ -35,8 +28,7 @@ class PriceComparisonAgent:
         self.agent_executor = self._create_agent_executor()
     
     def _create_agent_executor(self) -> AgentExecutor:
-        """Create and configure the LangChain agent executor."""
-        
+    
         # Create prompt template with only the variables we actually use
         prompt = ChatPromptTemplate.from_messages([
             ("system", PRICE_COMPARE_SYSTEM_PROMPT),
@@ -66,16 +58,7 @@ class PriceComparisonAgent:
         return agent_executor
     
     async def run(self, question: str, chat_history: Optional[List[BaseMessage]] = None) -> Optional[str]:
-        """
-        Run the agent with a user question.
-        
-        Args:
-            question (str): User's question about price comparison
-            chat_history (Optional[List[BaseMessage]]): Previous conversation history
-            
-        Returns:
-            Optional[str]: Agent's response or None if error occurred
-        """
+
         try:
             logger.info(f"Processing question: {question}")
             
@@ -102,7 +85,6 @@ class PriceComparisonAgent:
             return f"I encountered an error while processing your request: {str(e)}. Please try again with a different query."
 
 class ManualPriceComparisonAgent:
-    """Alternative manual implementation of the price comparison agent."""
     
     def __init__(self, google_api_key: str, model_name: str = "gemini-2.0-flash"):
         self.llm = ChatGoogleGenerativeAI(
@@ -113,20 +95,13 @@ class ManualPriceComparisonAgent:
         self.tools = [quickcompare_scraper]
         self.tools_dict = {tool.name: tool for tool in self.tools}
     
+    # Manually run the agent logic with tool calling.
     async def run(self, question: str) -> Optional[str]:
-        """
-        Manually run the agent logic with tool calling.
-        
-        Args:
-            question (str): User's question
-            
-        Returns:
-            Optional[str]: Agent's response
-        """
+
         try:
             # Create messages
             messages = [
-                SystemMessage(content=FIXED_SYSTEM_PROMPT),
+                SystemMessage(content=PRICE_COMPARE_SYSTEM_PROMPT),
                 HumanMessage(content=question)
             ]
             
@@ -169,17 +144,7 @@ class ManualPriceComparisonAgent:
             return f"I encountered an error while processing your request: {str(e)}. Please try again."
 
 def create_price_comparison_agent(google_api_key: str, model_name: str = "gemini-2.0-flash", use_manual: bool = False):
-    """
-    Factory function to create a price comparison agent.
-    
-    Args:
-        google_api_key (str): Google API key
-        model_name (str): Gemini model name
-        use_manual (bool): Whether to use manual implementation
-        
-    Returns:
-        PriceComparisonAgent or ManualPriceComparisonAgent
-    """
+
     if use_manual:
         return ManualPriceComparisonAgent(google_api_key, model_name)
     else:
