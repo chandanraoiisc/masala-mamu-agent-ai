@@ -2,6 +2,8 @@ import asyncio
 import logging
 from agent.price_compare_agent import create_price_comparison_agent
 
+model_name = "gemini-2.0-flash"
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +30,7 @@ async def run_price_agent(user_question: str, api_key: str, use_manual: bool = F
         logger.info(f"Creating agent with manual={use_manual}")
         agent = create_price_comparison_agent(
             google_api_key=api_key,
+            model_name=model_name,
             use_manual=use_manual
         )
         

@@ -277,11 +277,13 @@ class QuickCompareScraper:
 
 from langchain_core.tools import tool
 
+
+
 @tool
 async def quickcompare_scraper(query: str, max_cards: int = 5) -> str:
     """
     Uses QuickCompare (quickcompare.in) to search for products and compare prices across various online platforms.
-    Provide a concise and specific search query for the product you are looking for (e.g., "milk", "iPhone 15", "washing machine LG 7kg").
+    Provide a concise and specific search query for the product you are looking for (e.g., "milk", "curd", "washing machine LG 7kg").
     The tool returns a formatted string summary of the search results, including product brand, name, and available offers from different platforms with their prices.
     If no relevant results are found, it will indicate that.
 
