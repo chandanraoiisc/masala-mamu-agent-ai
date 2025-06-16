@@ -6,6 +6,10 @@ import logging
 from typing import Optional, List, Dict, Any
 import json
 import os
+import sys
+
+# Import nutrition dashboard integration
+from nutrition_dashboard import render_nutrition_dashboard_page
 
 # LangChain/LangGraph imports (assuming these are from your route_agent.py)
 # Make sure run_price_agent_sync is callable from here.
@@ -284,6 +288,9 @@ if "api_key" not in st.session_state:
 if "enable_tts" not in st.session_state:
     st.session_state.enable_tts = True
 
+if "user_id" not in st.session_state:
+    st.session_state.user_id = "anonymous"
+
 if "input_content" not in st.session_state:
     st.session_state.input_content = ""
 
@@ -345,11 +352,11 @@ def text_to_speech_safari_compatible(text: str) -> Optional[Dict[str, Any]]:
     if not st.session_state.enable_tts or not tts_available:
         logger.info("Text-to-Speech is disabled or not available.")
         return None
-    
+
     try:
         # First, try to parse the structured response to extract just the summary
         parsed_response = parse_structured_response(text)
-        
+
         # If we have a structured response with a summary, use that
         if parsed_response and "summary" in parsed_response and parsed_response["summary"]:
             clean_text = parsed_response["summary"]
@@ -358,7 +365,7 @@ def text_to_speech_safari_compatible(text: str) -> Optional[Dict[str, Any]]:
             # Fallback to cleaning the entire text
             clean_text = text
             logger.info("No structured summary found, using full text for TTS")
-        
+
         # Clean text for TTS (remove markdown, HTML, etc.)
         clean_text = re.sub(r'<[^>]+>', '', clean_text)
         clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_text)
@@ -367,34 +374,34 @@ def text_to_speech_safari_compatible(text: str) -> Optional[Dict[str, Any]]:
         clean_text = re.sub(r'`json.*?`', '', clean_text, flags=re.DOTALL)  # Remove JSON code blocks
         clean_text = re.sub(r'```.*?```', '', clean_text, flags=re.DOTALL)  # Remove code blocks
         clean_text = clean_text.strip()
-        
+
         # Limit text length for better performance
         if len(clean_text) > 500:
             clean_text = clean_text[:500] + "..."
-        
+
         # Skip TTS if text is too short or empty
         if len(clean_text.strip()) < 10:
             logger.info("Text too short for TTS, skipping")
             return None
-        
+
         tts = gTTS(text=clean_text, lang='en', slow=False)
         audio_fp = BytesIO()
         tts.write_to_fp(audio_fp)
         audio_fp.seek(0)
-        
+
         audio_bytes = audio_fp.read()
-        
+
         # Create base64 encoded version for Safari compatibility
         audio_base64 = base64.b64encode(audio_bytes).decode()
-        
+
         logger.info(f"Text converted to speech with Safari compatibility. Clean text: {clean_text[:100]}...")
-        
+
         return {
             "audio_bytes": audio_bytes,
             "audio_base64": audio_base64,
             "clean_text": clean_text
         }
-        
+
     except Exception as e:
         logger.error(f"gTTS Error: {str(e)}", exc_info=True)
         st.error(f"🔊 Text-to-Speech failed: {str(e)}")
@@ -404,11 +411,11 @@ def create_safari_audio_player(audio_data: Dict[str, Any]) -> str:
     """Create Safari-compatible audio player HTML"""
     audio_base64 = audio_data["audio_base64"]
     clean_text = audio_data["clean_text"]
-    
+
     # Create a unique ID for this audio player
     import uuid
     player_id = f"audio_player_{uuid.uuid4().hex[:8]}"
-    
+
     html = f"""
     <div class="safari-audio-player">
         <audio id="{player_id}" preload="none" controls style="width: 100%; max-width: 300px;">
@@ -420,7 +427,7 @@ def create_safari_audio_player(audio_data: Dict[str, Any]) -> str:
             🔊 Play Audio (Safari Compatible)
         </button>
     </div>
-    
+
     <script>
     function playAudioSafari(playerId) {{
         const audio = document.getElementById(playerId);
@@ -428,7 +435,7 @@ def create_safari_audio_player(audio_data: Dict[str, Any]) -> str:
             // For Safari: ensure user interaction triggers the play
             audio.load(); // Reload the audio element
             const playPromise = audio.play();
-            
+
             if (playPromise !== undefined) {{
                 playPromise.then(() => {{
                     console.log('Audio started playing successfully');
@@ -442,14 +449,14 @@ def create_safari_audio_player(audio_data: Dict[str, Any]) -> str:
             }}
         }}
     }}
-    
+
     // Additional Safari-specific initialization
     document.addEventListener('DOMContentLoaded', function() {{
         const audio = document.getElementById('{player_id}');
         if (audio) {{
             // Enable audio playback on Safari by setting volume
             audio.volume = 0.8;
-            
+
             // Add event listeners for debugging
             audio.addEventListener('loadstart', () => console.log('Audio load started'));
             audio.addEventListener('canplay', () => console.log('Audio can play'));
@@ -458,20 +465,20 @@ def create_safari_audio_player(audio_data: Dict[str, Any]) -> str:
     }});
     </script>
     """
-    
+
     return html
 
 def parse_structured_response(response_str: str) -> dict:
     """Extract and parse JSON from the response string, including additional text."""
     import re, json
-    
+
     # First, remove the JSON code block completely from the response
     # This handles ```json{...}``` patterns
     response_cleaned = re.sub(r'```json\s*\{[\s\S]*?\}\s*```', '', response_str, flags=re.MULTILINE)
-    
+
     # Also remove standalone JSON blocks without markdown
     json_match = re.search(r'\{[\s\S]*?\}', response_str)
-    
+
     structured_data = None
     if json_match:
         json_str = json_match.group(0)
@@ -483,11 +490,11 @@ def parse_structured_response(response_str: str) -> dict:
                 response_cleaned = re.sub(re.escape(json_str), '', response_cleaned)
         except Exception as e:
             print(f"JSON parsing error: {e}")
-    
+
     # Clean up extra whitespace and newlines
     response_cleaned = re.sub(r'\n\s*\n\s*\n+', '\n\n', response_cleaned)
     response_cleaned = response_cleaned.strip()
-    
+
     if structured_data:
         return {
             "summary": response_cleaned,
@@ -498,8 +505,8 @@ def parse_structured_response(response_str: str) -> dict:
     else:
         # If no valid JSON found, return entire cleaned response as summary
         return {
-            "summary": response_cleaned, 
-            "products": [], 
+            "summary": response_cleaned,
+            "products": [],
             "has_structured_data": False
         }
 
@@ -516,22 +523,22 @@ def render_message_content(message: Dict[str, Any]):
 
     if message["role"] == "assistant":
         parsed = parse_structured_response(message["content"])
-        
+
         if parsed.get("has_structured_data") and parsed.get("products"):
             # Display the complete summary (JSON structure removed, only readable text)
             summary_text = parsed['summary']
-            
+
             # Convert markdown-like formatting to HTML
             summary_text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', summary_text)
             summary_text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', summary_text)
             summary_text = re.sub(r'🔥 \*\*BEST VALUE:\*\*', r'🔥 <strong>BEST VALUE:</strong>', summary_text)
             summary_text = re.sub(r'💡 \*\*Shopping Tips:\*\*', r'💡 <strong>Shopping Tips:</strong>', summary_text)
-            
+
             # Convert bullet points to HTML lists
             lines = summary_text.split('\n')
             processed_lines = []
             in_list = False
-            
+
             for line in lines:
                 line = line.strip()
                 if line.startswith('*   ') or line.startswith('- '):
@@ -545,25 +552,25 @@ def render_message_content(message: Dict[str, Any]):
                         in_list = False
                     if line:
                         processed_lines.append(f'<p>{line}</p>')
-            
+
             if in_list:
                 processed_lines.append('</ul>')
-            
+
             formatted_summary = ''.join(processed_lines)
             message_html += formatted_summary
-            
+
             # Render product tables
             for product in parsed["products"]:
                 message_html += f'<div class="product-card">'
                 message_html += f'<div class="product-title">{product.get("brand", "")} - {product["name"]}</div>'
                 message_html += '<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">'
                 message_html += '<tr style="background-color: #f5f5f5;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Retailer</th><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Price</th></tr>'
-                
+
                 for offer in product["offers"]:
                     quantity = offer.get('quantity', '')
                     quantity_text = f" ({quantity})" if quantity else ""
                     message_html += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{offer["platform"]}</td><td style="padding: 8px; border: 1px solid #ddd;">{offer["price"]}{quantity_text}</td></tr>'
-                
+
                 message_html += '</table></div>'
         else:
             # No structured data, render as plain text with basic formatting
@@ -579,7 +586,7 @@ def render_message_content(message: Dict[str, Any]):
 
     message_html += '</div></div>'
     st.markdown(message_html, unsafe_allow_html=True)
-    
+
     # Handle audio with Safari compatibility
     if "audio_data" in message and message["audio_data"]:
         # Use Safari-compatible audio player
@@ -622,26 +629,26 @@ def process_user_input(user_input: str):
 
     with st.spinner("🤔 Thinking..."):
         response = get_chatbot_response(user_input.strip())
-    
+
     if response:
         audio_data = None
         if st.session_state.enable_tts:
             audio_data = text_to_speech_safari_compatible(response)
-        
+
         logger.info(f"Response received: {response}")
         logger.info(f"Audio data generated: {audio_data is not None}")
-        
+
         message_data = {
             "role": "assistant",
             "content": response,
             "timestamp": datetime.now().strftime("%H:%M:%S")
         }
-        
+
         if audio_data:
             message_data["audio_data"] = audio_data
             # Keep legacy audio for backward compatibility
             message_data["audio"] = audio_data["audio_bytes"]
-            
+
         st.session_state.messages.append(message_data)
     st.rerun()
 
@@ -650,52 +657,63 @@ def process_user_input(user_input: str):
 # Sidebar
 with st.sidebar:
     st.title("🌶️ Masala Mamu Settings")
+
+    # Add page navigation
+    st.markdown("### Navigation")
+    page = st.radio("Go to:", ["Chat Assistant", "Nutrition Dashboard"])
+
+    st.markdown("---")
+    st.markdown("### Settings")
     st.session_state.api_key = st.text_input(
         "Google API Key",
         value=st.session_state.api_key,
         type="password",
         help="Get your key from Google AI Studio"
     )
-    
+
     st.markdown("---")
     st.session_state.enable_tts = st.checkbox(
         "🔊 Enable Text-to-Speech",
         value=st.session_state.enable_tts
     )
-    
+
     # Add Safari compatibility info
     st.info("💡 **Safari Users**: If audio doesn't auto-play, click the 'Play Audio' button or use the audio controls.")
-    
+
     if st.button("🧹 Clear Chat", key="clear_chat_btn"):
         st.session_state.messages = []
         st.session_state.input_key = "input_1"
         st.session_state.input_content = ""
         st.rerun()
 
-# Main interface
-st.markdown('<h1 style="color: #212121;">🌶️ Masala Mamu: AI Kitchen Assistant</h1>', unsafe_allow_html=True)
-st.markdown('<p style="color: #212121;"><i>Your personal shopping assistant for comparing grocery prices across India</i></p>', unsafe_allow_html=True)
+# Main interface based on selected page
+if page == "Chat Assistant":
+    st.markdown('<h1 style="color: #212121;">🌶️ Masala Mamu: AI Kitchen Assistant</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #212121;"><i>Your personal shopping assistant for comparing grocery prices across India</i></p>', unsafe_allow_html=True)
 
-# Chat display
-with st.container():
-    container_class = "chat-container empty" if not st.session_state.messages else "chat-container"
-    st.markdown(f'<div class="{container_class}">', unsafe_allow_html=True)
-    
-    if not st.session_state.messages:
-        st.markdown("""
-        <div class="chat-message bot-message" style="max-width: 100%; margin: 0;">
-            <div class="message-header"><img src="https://i.imgur.com/1X4rC7F.png" class="avatar">🌶️ Masala Mamu</div>
-            <div class="message-content">
-                <p>Hello! I can help you compare prices of groceries and household items across various platforms in India.</p>
-                <p>Try asking: <strong>"What is the price of eggs?"</strong> or <strong>"Compare prices for Surf Excel detergent"</strong></p>
+    # Chat display
+    with st.container():
+        container_class = "chat-container empty" if not st.session_state.messages else "chat-container"
+        st.markdown(f'<div class="{container_class}">', unsafe_allow_html=True)
+
+        if not st.session_state.messages:
+            st.markdown("""
+            <div class="chat-message bot-message" style="max-width: 100%; margin: 0;">
+                <div class="message-header"><img src="https://i.imgur.com/1X4rC7F.png" class="avatar">🌶️ Masala Mamu</div>
+                <div class="message-content">
+                    <p>Hello! I can help you compare prices of groceries and household items across various platforms in India.</p>
+                    <p>Try asking: <strong>"What is the price of eggs?"</strong> or <strong>"Compare prices for Surf Excel detergent"</strong></p>
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        for message in st.session_state.messages:
-            render_message_content(message)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        else:
+            for message in st.session_state.messages:
+                render_message_content(message)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+else:
+    # Render nutrition dashboard page
+    render_nutrition_dashboard_page()
 
 # Scroll to bottom
 if st.session_state.messages:

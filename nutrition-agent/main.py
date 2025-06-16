@@ -8,6 +8,14 @@ from utils.logger import setup_logger
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+# Import the streamlit visualization module
+try:
+    import streamlit
+    STREAMLIT_AVAILABLE = True
+    from streamlit_viz import show_nutrition_dashboard
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+
 # Load environment variables
 load_dotenv()
 
@@ -41,6 +49,11 @@ def main():
         help="Show macro trends for the specified number of days"
     )
     parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Launch interactive Streamlit visualization dashboard"
+    )
+    parser.add_argument(
         "--delete",
         type=int,
         metavar="ID",
@@ -69,6 +82,22 @@ def main():
         show_macro_trends(agent, args.trends)
         return
 
+    if args.interactive:
+        if STREAMLIT_AVAILABLE:
+            logger.info("Launching interactive Streamlit dashboard")
+            print("Launching interactive Streamlit visualization dashboard...")
+            # Use sys.argv to directly call streamlit since we need to modify the arguments
+            # We use exec as a workaround to run streamlit from within Python
+            import sys
+            import subprocess
+            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "streamlit_viz.py")
+            subprocess.call(["streamlit", "run", script_path])
+            return
+        else:
+            logger.error("Streamlit is not installed. Please install it with: pip install streamlit plotly")
+            print("Streamlit is not installed. Please install it with: pip install streamlit plotly")
+            return
+
     if args.delete:
         delete_nutrition_record(agent, args.delete)
         return
@@ -82,6 +111,8 @@ def main():
     print("\nSpecial commands:")
     print("- Type 'history' to view your nutrition inquiry history")
     print("- Type 'trends' to see your macro consumption trends")
+    if STREAMLIT_AVAILABLE:
+        print("- Type 'dashboard' to launch interactive nutrition dashboard")
     print("\nType 'quit' to exit.\n")
 
     while True:
@@ -97,6 +128,14 @@ def main():
 
         if user_input.lower() == 'trends':
             show_macro_trends(agent, 30)  # Default to 30 days
+            continue
+
+        if user_input.lower() == 'dashboard' and STREAMLIT_AVAILABLE:
+            print("\nLaunching interactive nutrition dashboard...\n")
+            import subprocess
+            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "streamlit_viz.py")
+            subprocess.Popen(["streamlit", "run", script_path])
+            print("Dashboard launched in a new window. You can continue using this command line interface.")
             continue
 
         if not user_input:
@@ -225,6 +264,45 @@ def delete_nutrition_record(agent, record_id):
         print(f"Successfully deleted nutrition record {record_id}.")
     else:
         print(f"Failed to delete nutrition record {record_id}.")
+
+    print("\n" + "=" * 50)
+
+
+def launch_interactive_dashboard(agent):
+    """Launch the interactive Streamlit visualization dashboard."""
+    print("\nLaunching interactive Streamlit dashboard...\n")
+
+    # Here we would typically call streamlit.run() or similar,
+    # but for this script, we'll just simulate the action.
+    try:
+        import streamlit as st
+
+        # Sample code to demonstrate launching Streamlit (this won't run in a non-streamlit context)
+        st.title("Health & Diet Agent - Nutrition Dashboard")
+        st.write("Welcome to the interactive nutrition dashboard.")
+        st.write("Ask me about nutrition facts for recipes or ingredients.")
+
+        # Placeholder for actual dashboard content
+        # In a real Streamlit app, we would define the layout and components here
+        st.write("Dashboard content goes here...")
+
+        # For example, showing trends in Streamlit
+        trends = agent.get_macro_trends(days=30)
+        if trends and "dates" in trends:
+            st.line_chart({
+                "data": trends["dates"],
+                "calories": trends["calories"],
+                "protein": trends["protein"],
+                "carbohydrates": trends["carbohydrates"],
+                "fat": trends["fat"],
+            })
+        else:
+            st.write("No trends data available.")
+
+        st.write("End of dashboard.")
+
+    except Exception as e:
+        print(f"Error launching dashboard: {e}")
 
     print("\n" + "=" * 50)
 

@@ -7,6 +7,9 @@ duckduckgo-search
 pydantic
 requests
 python-dotenv
-langchain-github-llm
 matplotlib
 pandas
+streamlit
+plotly
+numpy
+langgraph
