@@ -80,3 +80,7 @@ lc_logs/
 # Database files
 *.sqlite3
 db/
+
+# Temporary files
+tmp*
+nutrition-agent/macro_trends.png
