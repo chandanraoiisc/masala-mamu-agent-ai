@@ -4,8 +4,42 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_tool_calling_agent, AgentExecutor
-from tools.quickcompare_tool import quickcompare_scraper
-from agent.price_compare_agent_prompt import PRICE_COMPARE_SYSTEM_PROMPT
+
+# Updated import with fallback handling
+try:
+    from tools.quickcompare_tool import get_quickcompare_tool
+    TOOLS_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"Could not import tools: {e}")
+    TOOLS_AVAILABLE = False
+
+
+# Import prompt (create this file if it doesn't exist)
+try:
+    from agent.price_compare_agent_prompt import PRICE_COMPARE_SYSTEM_PROMPT
+except ImportError:
+    # Fallback prompt if file doesn't exist
+    PRICE_COMPARE_SYSTEM_PROMPT = """
+    You are a helpful price comparison assistant for Indian e-commerce platforms.
+    
+    You have access to a tool that can scrape and compare product prices across multiple platforms like:
+    - BigBasket
+    - Blinkit
+    - Swiggy Instamart
+    - Zepto
+    - JioMart
+    - Amazon
+    - Flipkart
+    
+    When a user asks about product prices:
+    1. Use the quickcompare_scraper tool to get current price data
+    2. Present the information in a clear, organized manner
+    3. Highlight the cheapest and most expensive options
+    4. Include quantity information when available
+    5. Be helpful and conversational
+    
+    If the tool returns an error, explain the issue and suggest alternatives.
+    """
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -13,16 +47,22 @@ logger = logging.getLogger(__name__)
 
 class PriceComparisonAgent:
         
-    def __init__(self, google_api_key: str, model_name: str = "gemini-2.0-flash"):
-
+    # Removed use_manual from constructor as it was unused
+    def __init__(self, google_api_key: str, model_name: str = "gemini-2.0-flash", use_direct_scraper: bool = False):
+        
+        if not TOOLS_AVAILABLE:
+            raise ImportError("Tools are not available. Please ensure tools/quickcompare_tool.py exists.")
+        
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
             temperature=0.3,
             google_api_key=google_api_key
         )
         
-        # Available tools
-        self.tools = [quickcompare_scraper]
+        # Get the appropriate tool - now always MCP client through get_quickcompare_tool
+        # The use_direct_scraper parameter here is passed but will be ignored by the modified get_quickcompare_tool
+        self.tools = [get_quickcompare_tool(use_direct=use_direct_scraper)]
+        self.use_direct_scraper = use_direct_scraper # Still keeps this internal flag for consistency if needed elsewhere, though its effect is nullified by tool.py changes
         
         # Create the agent and executor
         self.agent_executor = self._create_agent_executor()
@@ -84,68 +124,17 @@ class PriceComparisonAgent:
             logger.error(f"Error during agent execution: {e}", exc_info=True)
             return f"I encountered an error while processing your request: {str(e)}. Please try again with a different query."
 
-class ManualPriceComparisonAgent:
+# Removed use_manual from function signature as it was unused
+def create_price_comparison_agent(google_api_key: str, model_name: str = "gemini-2.0-flash", use_direct_scraper: bool = False):
+    """
+    Create a price comparison agent.
     
-    def __init__(self, google_api_key: str, model_name: str = "gemini-2.0-flash"):
-        self.llm = ChatGoogleGenerativeAI(
-            model=model_name,
-            temperature=0.3,
-            google_api_key=google_api_key
-        )
-        self.tools = [quickcompare_scraper]
-        self.tools_dict = {tool.name: tool for tool in self.tools}
-    
-    # Manually run the agent logic with tool calling.
-    async def run(self, question: str) -> Optional[str]:
+    Args:
+        google_api_key: Google API key for Gemini
+        model_name: Model name to use
+        use_direct_scraper: Whether to use direct scraper instead of MCP client.
+                            Note: This parameter is now effectively ignored by quickcompare_tool.get_quickcompare_tool().
+    """
 
-        try:
-            # Create messages
-            messages = [
-                SystemMessage(content=PRICE_COMPARE_SYSTEM_PROMPT),
-                HumanMessage(content=question)
-            ]
-            
-            # Bind tools to LLM
-            llm_with_tools = self.llm.bind_tools(self.tools)
-            
-            # First LLM call
-            response = await llm_with_tools.ainvoke(messages)
-            messages.append(response)
-            
-            # Check if tools were called
-            if hasattr(response, 'tool_calls') and response.tool_calls:
-                logger.info(f"Tool calls detected: {len(response.tool_calls)}")
-                
-                # Execute tool calls
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call["name"]
-                    tool_args = tool_call["args"]
-                    
-                    if tool_name in self.tools_dict:
-                        logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
-                        tool_result = await self.tools_dict[tool_name].ainvoke(tool_args)
-                        
-                        # Add tool result to messages
-                        tool_message = ToolMessage(
-                            content=str(tool_result),
-                            tool_call_id=tool_call["id"]
-                        )
-                        messages.append(tool_message)
-                
-                # Second LLM call with tool results
-                final_response = await self.llm.ainvoke(messages)
-                return final_response.content
-            else:
-                # No tools called, return direct response
-                return response.content
-                
-        except Exception as e:
-            logger.error(f"Error in manual agent execution: {e}", exc_info=True)
-            return f"I encountered an error while processing your request: {str(e)}. Please try again."
-
-def create_price_comparison_agent(google_api_key: str, model_name: str = "gemini-2.0-flash", use_manual: bool = False):
-
-    if use_manual:
-        return ManualPriceComparisonAgent(google_api_key, model_name)
-    else:
-        return PriceComparisonAgent(google_api_key, model_name)
+    # Passes use_direct_scraper, but get_quickcompare_tool now always returns MCP tool
+    return PriceComparisonAgent(google_api_key, model_name, use_direct_scraper)
