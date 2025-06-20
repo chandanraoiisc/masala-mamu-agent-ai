@@ -18,7 +18,7 @@ class RecipeData(BaseModel):
 
 
 class ShoppingData(BaseModel):
-    platform_comparisons: Dict[str, Dict[str, Any]]
+    # platform: Dict[str, Dict[str, Any]]
     best_option: str
     total_cost: float
 

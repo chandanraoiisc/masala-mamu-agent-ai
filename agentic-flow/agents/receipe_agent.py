@@ -57,7 +57,7 @@ class RecipeAgent(BaseAgent):
                 cooking_time="unknown",
                 servings=1
             )
-
+            print("data from receipe  ",recipe_data)
             return {"recipe_data": recipe_data}
 
         except Exception as e:

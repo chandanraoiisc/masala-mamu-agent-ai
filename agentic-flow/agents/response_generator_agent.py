@@ -115,10 +115,10 @@ class ResponseGeneratorAgent(BaseAgent):
                     context_parts.append("\nSHOPPING:")
                     context_parts.append(f"Best place to buy: {shopping_data.best_option}")
                     context_parts.append(f"Total cost: ₹{shopping_data.total_cost}")
-                    context_parts.append("\nPlatform comparison:")
-                    for platform, details in shopping_data.platform_comparisons.items():
-                        context_parts.append(
-                            f"- {platform.capitalize()}: ₹{details.get('total', 0)}, Delivery: {details.get('delivery_time', 'unknown')}")
+                    # context_parts.append("\nPlatform comparison:")
+                    # for platform, details in shopping_data.platform_comparisons.items():
+                    #     context_parts.append(
+                    #         f"- {platform.capitalize()}: ₹{details.get('total', 0)}, Delivery: {details.get('delivery_time', 'unknown')}")
                 except AttributeError:
                     # Handle dictionary format
                     best_option = shopping_data.get('best_option', '')
@@ -173,6 +173,7 @@ class ResponseGeneratorAgent(BaseAgent):
                 {context}
 
                 Provide a response that addresses ONLY what the user explicitly asked for.
+                If user asked you to order ingredients, provide the shopping information.
                 Do not include information that wasn't requested.
                 """
 
@@ -180,7 +181,7 @@ class ResponseGeneratorAgent(BaseAgent):
                     prompt=prompt,
                     system_message=self.system_message
                 )
-
+                print("response gen: ",response_text)
                 return {"response": response_text}
             else:
                 raise ConnectionError("GPT client not available")
