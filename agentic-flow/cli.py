@@ -6,7 +6,7 @@ from services.gpt_client import GPTClient
 from router.parser import IntentParser
 from router.orchestrator import WorkflowOrchestrator
 from agents.inventory_agent import InventoryAgent
-from agents.recipe_agent import RecipeAgent
+from agents.receipe_agent import RecipeAgent
 from agents.shopping_agent import ShoppingAgent
 from agents.health_agent import HealthAgent
 from agents.response_generator_agent import ResponseGeneratorAgent
@@ -55,7 +55,7 @@ async def main():
         orchestrator.register_agent(InventoryAgent(gpt_client=gpt_client))
         orchestrator.register_agent(RecipeAgent(gpt_client=gpt_client))
         orchestrator.register_agent(ShoppingAgent(gpt_client=gpt_client))
-        orchestrator.register_agent(HealthAgent(gpt_client=gpt_client))
+        orchestrator.register_agent(HealthAgent())
         orchestrator.register_agent(ResponseGeneratorAgent(gpt_client=gpt_client))  # Add this line
 
         orchestrator.build_workflow()
