@@ -30,7 +30,7 @@ orchestrator = WorkflowOrchestrator()
 
 # Register agents
 orchestrator.register_agent(InventoryAgent())
-orchestrator.register_agent(RecipeAgent(gpt_client=gpt_client))
+orchestrator.register_agent(RecipeAgent())
 orchestrator.register_agent(ShoppingAgent(gpt_client=gpt_client))
 orchestrator.register_agent(HealthAgent())
 orchestrator.register_agent(ResponseGeneratorAgent(gpt_client=gpt_client))
