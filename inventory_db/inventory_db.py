@@ -35,7 +35,7 @@ def upsert_inventory(json_list):
         stored_on = entry.get("stored_on")
 
         # Validate required fields
-        if not item or not stored_on:
+        if not item :
             print(f"⚠️ Skipping entry with missing 'item' or 'stored_on': {entry}")
             continue
 
