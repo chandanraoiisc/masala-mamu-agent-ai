@@ -14,7 +14,7 @@ llm = ChatOpenAI(model="gpt-4o-mini")
 # Setup retriever using MongoDB vector search
 vectorstore = get_vectorstore()  # you already defined this in db.py
 # retriever = vectorstore.as_retriever()
-retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
+retriever = vectorstore.as_retriever(search_kwargs={"k": 100})
 
 
 # Define prompt with system role
