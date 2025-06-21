@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from sentence_transformers import SentenceTransformer
-
+from datetime import datetime
 from langchain.embeddings import HuggingFaceEmbeddings
 # Load embedding model
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -32,11 +32,11 @@ def upsert_inventory(json_list):
 
         item = entry.get("item").lower()
         quantity = entry.get("quantity", "1")
-        stored_on = entry.get("stored_on")
+        stored_on = entry.get("stored_on", datetime.now())
 
         # Validate required fields
         if not item :
-            print(f"⚠️ Skipping entry with missing 'item' or 'stored_on': {entry}")
+            print(f"⚠️ Skipping entry with missing 'item': {entry}")
             continue
 
         # Generate embedding
