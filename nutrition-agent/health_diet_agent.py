@@ -36,6 +36,7 @@ Your responsibilities:
 4. Present nutrition information in a helpful, easy-to-understand format
 5. When analyzing recipes, consider the cooking methods and how they affect nutrition
 6. Provide per-serving information when applicable
+7. ALWAYS cite your sources for nutrition information
 
 When presenting nutrition information, use this structure:
 - Calories: [value] kcal
@@ -48,6 +49,14 @@ When presenting nutrition information, use this structure:
 Always use the appropriate tools to search for accurate information before providing
 an answer. If information is inconsistent across sources, provide a reasonable estimate
 and note the discrepancy.
+
+IMPORTANT: After presenting nutrition information, always include a "Sources:" section that cites
+the websites or references where the nutrition data was obtained. Include source titles and URLs when available.
+For example:
+
+Sources:
+1. [Source Title](URL)
+2. [Source Title](URL)
 """
 
 
@@ -188,6 +197,13 @@ class HealthDietAgent:
         try:
             self.logger.info("Extracting macronutrient data from analysis result")
 
+            # Extract sources from raw result if available
+            sources = []
+            if 'raw_result' in analysis_result and 'intermediate_steps' in analysis_result['raw_result']:
+                for step in analysis_result['raw_result']['intermediate_steps']:
+                    if isinstance(step[1], dict) and 'sources' in step[1]:
+                        sources.extend(step[1]['sources'])
+
             # Ask the LLM to extract structured data from the analysis
             extraction_prompt = f"""
             Extract the precise macronutrient values from this nutrition analysis:
@@ -227,6 +243,20 @@ class HealthDietAgent:
             macro_data = json.loads(json_str)
 
             # Create MacroNutrient object
+            # Add sources to macro_data if available
+            if sources:
+                # Convert raw source dictionaries to Source objects
+                source_objects = []
+                for source in sources:
+                    if isinstance(source, dict):
+                        source_objects.append({
+                            "title": source.get("title", "Unknown Source"),
+                            "url": source.get("url", ""),
+                            "snippet": source.get("snippet", "")
+                        })
+
+                macro_data["sources"] = source_objects
+
             macros = MacroNutrient(**macro_data)
 
             self.logger.info(f"Successfully extracted macronutrient data: {macros.to_dict()}")

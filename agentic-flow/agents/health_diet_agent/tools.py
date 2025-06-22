@@ -1,6 +1,6 @@
-from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
+from langchain_community.tools import DuckDuckGoSearchResults
 from langchain.tools import Tool
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 import json
 import re
 from models.state import MacroNutrient, IngredientNutrition
@@ -13,24 +13,56 @@ class NutritionSearchTool:
     def __init__(self, _=None):  # Parameter kept for backwards compatibility
         self.logger = setup_logger(__name__)
         self.logger.info("Initializing NutritionSearchTool")
-        self.search_tool = DuckDuckGoSearchAPIWrapper(
-            max_results=5
+        self.search_tool = DuckDuckGoSearchResults(
+            output_format="list",
+            num_results=5
         )
+        self.include_sources = True
 
     def search_ingredient_nutrition(self, ingredient: str, amount: str = None) -> Dict[str, Any]:
         """Search for nutrition information of a specific ingredient."""
         self.logger.info(f"Searching nutrition for ingredient: {ingredient}, amount: {amount or 'not specified'}")
-        search_query = f"nutrition facts macros calories protein carbs fat {ingredient}"
-        if amount:
-            search_query += f" {amount}"
+        search_query = f"nutrition facts macros calories protein carbs fat {ingredient} {amount or '100g'}"
 
         self.logger.debug(f"Search query: {search_query}")
-        results = self.search_tool.run(search_query)
+        results = self.search_tool.invoke(search_query)
         self.logger.info(f"Found {len(results)} search results for {ingredient}")
+
+        # Process results to include source information
+        processed_results = []
+        sources = []
+
+        if results:
+            self.logger.debug(f"Search results: {results}")
+            # Process each search result to extract sources
+            for result in results:
+                processed_results.append(result)
+
+                # Create source entry
+                if isinstance(result, dict) and 'title' in result and 'link' in result:
+                    sources.append({
+                        "title": result['title'],
+                        "url": result['link'],
+                        "snippet": result.get('snippet', '')
+                    })
+                elif isinstance(result, str):
+                    # Simple string result with no source info
+                    continue
+
+        if not results:
+            self.logger.warning(f"No results found for ingredient: {ingredient}")
+            return {
+                "ingredient": ingredient,
+                "amount": amount or "100g",
+                "search_results": [],
+                "sources": []
+            }
+
         return {
             "ingredient": ingredient,
             "amount": amount or "100g",
-            "search_results": results
+            "search_results": processed_results,
+            "sources": sources
         }
 
     def search_recipe_nutrition(self, recipe_name: str, ingredients: List[str] = None) -> Dict[str, Any]:
@@ -44,11 +76,33 @@ class NutritionSearchTool:
             self.logger.debug(f"Including key ingredients: {key_ingredients}")
 
         self.logger.debug(f"Search query: {search_query}")
-        results = self.search_tool.run(search_query)
+        results = self.search_tool.invoke(search_query)
         self.logger.info(f"Found {len(results)} search results for recipe {recipe_name}")
+
+        # Process results to include source information
+        processed_results = []
+        sources = []
+
+        if results:
+            # Process each search result to extract sources
+            for result in results:
+                processed_results.append(result)
+
+                # Create source entry
+                if isinstance(result, dict) and 'title' in result and 'link' in result:
+                    sources.append({
+                        "title": result['title'],
+                        "url": result['link'],
+                        "snippet": result.get('snippet', '')
+                    })
+                elif isinstance(result, str):
+                    # Simple string result with no source info
+                    continue
+
         return {
             "recipe": recipe_name,
-            "search_results": results
+            "search_results": processed_results,
+            "sources": sources
         }
 
     def search_cooking_method_impact(self, cooking_method: str, ingredient: str) -> Dict[str, Any]:
@@ -56,12 +110,34 @@ class NutritionSearchTool:
         self.logger.info(f"Searching nutrition impact of {cooking_method} on {ingredient}")
         search_query = f"nutrition impact {cooking_method} {ingredient} calories protein fat"
         self.logger.debug(f"Search query: {search_query}")
-        results = self.search_tool.run(search_query)
+        results = self.search_tool.invoke(search_query)
         self.logger.info(f"Found {len(results)} search results for cooking impact")
+
+        # Process results to include source information
+        processed_results = []
+        sources = []
+
+        if results:
+            # Process each search result to extract sources
+            for result in results:
+                processed_results.append(result)
+
+                # Create source entry
+                if isinstance(result, dict) and 'title' in result and 'link' in result:
+                    sources.append({
+                        "title": result['title'],
+                        "url": result['link'],
+                        "snippet": result.get('snippet', '')
+                    })
+                elif isinstance(result, str):
+                    # Simple string result with no source info
+                    continue
+
         return {
             "cooking_method": cooking_method,
             "ingredient": ingredient,
-            "search_results": results
+            "search_results": processed_results,
+            "sources": sources
         }
 
 

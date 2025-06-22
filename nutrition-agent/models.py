@@ -4,6 +4,13 @@ import json
 from datetime import datetime
 
 
+class Source(BaseModel):
+    """Information about a source for nutrition data."""
+    title: str = Field(description="Title or headline of the source")
+    url: str = Field(description="URL of the source")
+    snippet: Optional[str] = Field(default=None, description="Snippet text from the source")
+
+
 class MacroNutrient(BaseModel):
     """Represents a macronutrient with its amount and unit."""
     calories: Optional[float] = Field(default=None, description="Calories per serving")
@@ -13,6 +20,7 @@ class MacroNutrient(BaseModel):
     fiber: Optional[float] = Field(default=None, description="Fiber in grams")
     sugar: Optional[float] = Field(default=None, description="Sugar in grams")
     sodium: Optional[float] = Field(default=None, description="Sodium in mg")
+    sources: Optional[List[Source]] = Field(default=None, description="Sources of nutrition information")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary, excluding None values."""
