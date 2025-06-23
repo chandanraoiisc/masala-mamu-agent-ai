@@ -31,3 +31,11 @@ for golden in dataset.goldens:
 print("Dataset preparation completed.")
 print(f"Total test cases prepared: {len(test_cases)}")
 print(test_cases[0])  # Print the first test case for verification
+
+
+print("Unit tests are being run...")
+evaluate(
+    identifier="Custom Test Eval LLM",
+    test_cases=test_cases,
+    metrics=[AnswerRelevancyMetric()]
+)
