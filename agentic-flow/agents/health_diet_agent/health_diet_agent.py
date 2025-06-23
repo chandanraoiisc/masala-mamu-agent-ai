@@ -16,7 +16,7 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 from langchain.schema.language_model import BaseLanguageModel
 from langchain.tools import Tool
-from langchain_community.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
+from langchain_community.tools import DuckDuckGoSearchResults
 from agents.health_diet_agent.llm_config import get_llm
 from models.state import MacroNutrient, IngredientNutrition, RecipeNutrition, NutritionRecord
 from agents.health_diet_agent.utils.logger import setup_logger
@@ -36,6 +36,7 @@ Your responsibilities:
 4. Present nutrition information in a helpful, easy-to-understand format
 5. When analyzing recipes, consider the cooking methods and how they affect nutrition
 6. Provide per-serving information when applicable
+7. ALWAYS cite your sources for nutrition information
 
 When presenting nutrition information, use this structure:
 - Calories: [value] kcal

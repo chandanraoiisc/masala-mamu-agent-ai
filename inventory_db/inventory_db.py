@@ -40,12 +40,12 @@ def upsert_inventory(json_list):
             continue
 
         # Generate embedding
-        text = f"Item: {item}, Quantity: {quantity}, stored_on: {stored_on}"
+        text = f"Item: {item}"
         embedding = model.encode(text).tolist()
 
         # Upsert to MongoDB using item + stored_on as composite key
         collection.update_one(
-            {"item": item, "stored_on": stored_on},
+            {"item": item},
             {
                 "$set": {
                     "item": item,
