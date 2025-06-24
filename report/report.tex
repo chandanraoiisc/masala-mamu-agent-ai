@@ -130,9 +130,9 @@ Masala Mamu uses specialized agents coordinated by a central router:
 
     % Draw all other arrows on top with bold style
     \draw[->] (user) -- (router);
-    \draw[->] (router) -- (nutrition);
-    \draw[->] (router) -- (inventory);
-    \draw[->] (router) -- (price);
+    \draw[<->] (router) -- (nutrition);
+    \draw[<->] (router) -- (inventory);
+    \draw[<->] (router) -- (price);
     \draw[->] (nutrition) -- (response);
     \draw[->] (inventory) -- (response);
     \draw[->] (price) -- (response);
