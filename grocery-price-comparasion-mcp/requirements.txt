@@ -1,0 +1,7 @@
+langchain-google-genai
+langchain-core
+streamlit
+SpeechRecognition
+gtts
+mcp
+playwright
