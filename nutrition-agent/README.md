@@ -2,6 +2,16 @@
 
 A LangChain-based health and diet agent that analyzes recipes and ingredients for nutritional information. This agent is designed to work as part of a larger kitchen assistant system with router-based architecture.
 
+## Contributor's Note
+
+As the developer of the nutrition-agent module, I (Brijgopal Bharadwaj) built what became a cornerstone of our kitchen assistant system. I wanted to create something that could accurately break down nutritional content of any recipe or ingredient, so I designed an LLM-based agent with real-world usefulness in mind.
+
+The system searches the web for up-to-date nutrition data using DuckDuckGo and structures this information cleanly with Pydantic models. I added a SQLite database to store past queries, which opened up the possibility for users to track their nutritional habits over time—something I visualized using Matplotlib charts and a Streamlit dashboard.
+
+One challenge I tackled was making the system flexible enough to work with different LLM providers (it now supports OpenAI, GitHub Copilot, and Groq). I'm particularly proud of how the agent considers cooking methods when calculating nutrition—roasting vegetables changes their nutritional profile compared to eating them raw, for example.
+
+To ensure this component worked smoothly with our broader kitchen assistant, I created a router integration layer that lets it communicate with other agents in our system. With comprehensive error handling, logging, and a functional CLI, this module ended up being one of the most complete parts of our project.
+
 ## Features
 
 - **Recipe Nutrition Analysis**: Complete macro breakdown for entire recipes
