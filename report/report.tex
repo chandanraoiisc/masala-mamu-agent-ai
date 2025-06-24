@@ -84,49 +84,41 @@
 %%% Use this environment to include an abstract of your paper.
 
 \begin{abstract}
-In the evolving landscape of smart homes, modern households face increasing complexity in managing day-to-day kitchen operations, including grocery tracking, meal planning, dietary health monitoring, and budget optimization. This project introduces the Agentic AI-Powered Kitchen Assistant, an intelligent, multi-agent system that automates and augments household kitchen management using the latest advancements in artificial intelligence, multimodal natural language processing, and external API integrations. At the core of this system is a Router Agent (built using LangChain/LangGraph) that dynamically delegates tasks to specialized agents based on user queries and contextual requirements. These agents include:
-Inventory Manager Agent: Maintains a real-time inventory by interfacing with a database and updates stock levels as items are consumed or added. Price Comparison \& Ordering Agent (MCP): Connects to multiple vendor APIs to identify cost-effective purchasing options and initiate grocery orders. Recipe Generator Agent: Using the current inventory and user preferences, we propose recipes that are nutritious and tailored to dietary restrictions. Health \& Diet Chart Agent: Tracks nutritional intake and provides personalized insights via a dashboard backed by dietary guidelines.
-The system communicates with a central LLM (Large Language Model) which facilitates natural language understanding and reasoning, bridging user intent with agent actions. The assistant supports multimodal NLP, allowing users to interact using both speech-to-text and text-based commands.
-
+Modern households struggle with kitchen management tasks like grocery tracking, meal planning, and dietary monitoring. We present Masala Mamu, an AI-powered kitchen assistant using a multi-agent system to integrate these functions. A central Router Agent delegates tasks to specialized agents: Inventory Manager (tracks ingredients), Price Comparison Agent (finds deals across vendors), Recipe Generator (suggests meals based on inventory), and Health \& Diet Agent (monitors nutrition). Built on LangChain/LangGraph with multimodal capabilities, the system offers an integrated approach to meal planning and grocery shopping optimized for Indian dietary preferences and e-commerce landscape.
 \end{abstract}
 
 \end{frontmatter}
 
 \section{Introduction}
 
-The increasing complexity of maintaining a balanced diet while being cost-conscious presents a significant challenge for many households. Existing solutions typically address either nutrition tracking, recipe generation using given ingredients, or ingredients price comparison separately, creating a fragmented user experience. Masala Mamu bridges this gap by offering an integrated approach to meal planning and grocery shopping, with a focus on the Indian context where diverse dietary preferences and a complex e-commerce landscape make optimized food decisions challenging.
+Maintaining a balanced diet while managing costs presents significant challenges. Existing solutions separately address nutrition tracking, recipe generation, or price comparison, creating fragmented experiences. Masala Mamu integrates these functions for the Indian context, where diverse dietary preferences and a complex e-commerce landscape complicate decision-making.
 
-The key contributions of this project include:
+Key contributions include:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item A multi-agent architecture that intelligently routes user queries to specialized agents
-    \item A nutrition analysis system that provides detailed macro-nutrient breakdowns for recipes and ingredients
-    \item A price comparison engine that scrapes and compares grocery prices across major Indian e-commerce platforms
-    \item An inventory management system with vision-based ingredient recognition and semantic search capabilities
-    \item A real-time nutrition tracking dashboard with visualizations and personalized insights
+    \item A multi-agent routing architecture for specialized task delegation
+    \item A nutrition analysis system with macro-nutrient breakdown capabilities
+    \item A price comparison engine for major Indian e-commerce platforms
+    \item Vision-based inventory management with semantic search
+    \item Real-time nutrition tracking with personalized insights
 \end{itemize}
 
 \section{System Architecture}
 
 \subsection{Multi-Agent Architecture}
 
-Masala Mamu employs a modular architecture comprised of specialized agents coordinated by a central routing mechanism. As illustrated in Figure 1, the system consists of:
+Masala Mamu uses specialized agents coordinated by a central router:
 
 \begin{figure}[h]
 \centering
-\begin{tikzpicture}[>=latex] % Use latex arrow style which is very clear
+\begin{tikzpicture}[>=latex,scale=0.9]
+    \draw[->, gray!70, thin] (0,-6) to[out=180,in=180] (0,0);
+    \node[rectangle, draw, fill=white, minimum width=2.5cm, minimum height=0.7cm] (user) at (0,0) {User Interface};
+    \node[rectangle, draw, fill=white, minimum width=2.5cm, minimum height=0.7cm] (router) at (0,-1.5) {Routing Agent};
+    \node[rectangle, draw, fill=white, minimum width=1.8cm, minimum height=0.7cm] (nutrition) at (-3,-3) {Nutrition Agent};
+    \node[rectangle, draw, fill=white, minimum width=1.8cm, minimum height=0.7cm] (inventory) at (0,-3) {Inventory Agent};
+    \node[rectangle, draw, fill=white, minimum width=1.8cm, minimum height=0.7cm] (price) at (3,-3) {Price Comparison};
+    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.7cm] (response) at (0,-5) {Response Generator};
 
-    % Draw the curved arrow first (will be behind everything)
-    \draw[->, gray!70, thin] (0,-6.5) to[out=180,in=180] (0,0);
-
-    % Define the nodes with opaque backgrounds and borders
-    \node[rectangle, draw, fill=white, minimum width=3cm, minimum height=0.8cm] (user) at (0,0) {User Interface};
-    \node[rectangle, draw, fill=white, minimum width=3cm, minimum height=0.8cm] (router) at (0,-2) {Routing Agent};
-    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (nutrition) at (-3,-4) {Nutrition Agent};
-    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (inventory) at (0,-4) {Inventory Agent};
-    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (price) at (3,-4) {Price Comparison};
-    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (response) at (0,-6.5) {Response Generator};
-
-    % Draw all other arrows on top with bold style
     \draw[->] (user) -- (router);
     \draw[->] (router) -- (nutrition);
     \draw[->] (router) -- (inventory);
@@ -139,252 +131,173 @@ Masala Mamu employs a modular architecture comprised of specialized agents coord
 \end{figure}
 
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{Routing Agent:} Intelligently creates the workflow and directs it by selecting the next appropriate agent based on current state and task completion
-    \item \textbf{Nutrition Analysis Agent:} Processes food-related queries and provides nutritional information
-    \item \textbf{Price Comparison Agent:} Searches for the best grocery deals across e-commerce platforms
-    \item \textbf{Inventory Management Agent:} Tracks kitchen ingredients and facilitates inventory queries
-    \item \textbf{Response Generator:} Combines outputs from specialized agents to create cohesive responses
+    \item \textbf{Routing Agent:} Directs workflows based on query intent and task state
+    \item \textbf{Nutrition Agent:} Processes food queries and provides nutritional data
+    \item \textbf{Price Agent:} Finds best grocery deals across e-commerce platforms
+    \item \textbf{Inventory Agent:} Manages kitchen ingredients database
+    \item \textbf{Response Generator:} Creates cohesive responses from agent outputs
 \end{itemize}
 
-The orchestration layer, implemented with LangGraph, manages the workflow between agents, allowing for complex multi-step reasoning. This approach enables the system to handle queries that span multiple domains, such as: "What's the most cost-effective way to prepare a high-protein vegetarian meal?"
+LangGraph orchestration enables complex multi-domain queries like "What's the most cost-effective high-protein vegetarian meal?"
 
 \subsection{Technology Stack}
 
-The implementation leverages modern AI and web technologies:
-
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{LLM Integration:} Supports multiple providers (OpenAI, Google Gemini, GitHub Copilot)
-    \item \textbf{Framework:} LangChain and LangGraph for agent orchestration and tool usage
-    \item \textbf{Frontend:} Streamlit for interactive UI components and visualization dashboard
-    \item \textbf{Data Storage:} SQLite for nutrition records, MongoDB Atlas for inventory management
-    \item \textbf{Computer Vision:} GPT-4o Vision for ingredient recognition from images
-    \item \textbf{Vector Embeddings:} Sentence-transformers for semantic search capabilities
-    \item \textbf{Web Scraping:} Custom tools for real-time price comparison across e-commerce platforms
+    \item \textbf{LLMs:} OpenAI, Gemini, GitHub Copilot
+    \item \textbf{Framework:} LangChain/LangGraph for orchestration
+    \item \textbf{Frontend:} Streamlit for UI and visualizations
+    \item \textbf{Storage:} SQLite (nutrition), MongoDB (inventory)
+    \item \textbf{Vision:} GPT-4o for ingredient recognition
+    \item \textbf{Embeddings:} Sentence-transformers for semantic search
+    \item \textbf{Scraping:} Custom tools for e-commerce price comparison
 \end{itemize}
 
 \section{Key Components}
 
 \subsection{Routing Engine}
 
-The LangGraph router flow is the heart of the Kitchen Assistant's execution logic. Before routing begins, the IntentParser uses a GPT-powered prompt via Azure OpenAI to interpret the user query. It extracts essential information including the primary and secondary intents, key entities (such as ingredients or dish names), and most importantly, determines the optimal sequence of agents to fulfill the request. This agent flow guides the routing logic to execute agents like recipe\_agent, inventory\_agent, or shopping\_agent in the appropriate order.
+The LangGraph router flow powers the system's execution logic. An IntentParser using GPT extracts query intents, key entities, and determines agent sequencing. The router, the entry point for queries, tracks required and completed agents to select the next one to activate.
 
-It begins with a special node named "router", which acts as the entry point for every user query. Based on the current state, especially the required\_agents and completed\_agents, it intelligently decides the next agent to activate.
-
-Each agent (like InventoryAgent, RecipeAgent, etc.) is registered and added as a node in the graph. After processing, agents update the state and return control to the router. This enables a looping structure where agents are executed sequentially but conditionally, based on user intent.
-
-The router has built-in checks:
-
-Invokes response generator when direct response is received.
-
-Once all required agents are done, the workflow concludes gracefully.
-
-This modular and reactive routing makes the system goal-driven, robust, and easy to extend with new agents
+Each agent functions as a node in the graph, processing its specialized task before updating the state and returning control to the router. This creates a conditional execution flow based on user intent that invokes the response generator when complete. This modular approach ensures goal-driven execution and easy extensibility.
 
 \subsection{Nutrition Analysis System}
 
-The nutrition analysis component provides detailed macro-nutrient information for ingredients and recipes through a specialized LLM-powered agent approach. Unlike traditional fixed database systems, it leverages web search capabilities to access up-to-date nutrition data while maintaining structured data representation.
+The nutrition analysis component provides macro-nutrient information through an LLM-powered approach with web search capabilities for up-to-date data:
 
 \begin{algorithm}
 \caption{Nutrition Analysis Workflow}
 \begin{algorithmic}[1]
-\State Parse user query to identify query type (recipe vs. ingredients)
-\State Initialize LLM with specialized nutrition analysis system prompt
-\State Perform web search using DuckDuckGoSearchResults tools
-\State Extract structured macro-nutrient data using Pydantic models
-\State Store nutrition record in SQLite database with timestamp
-\State Generate data visualizations of nutrition trends
+\State Parse query (recipe vs. ingredients)
+\State Initialize LLM with nutrition prompt
+\State Perform web search for nutrition data
+\State Extract structured data with Pydantic
+\State Store in SQLite database with timestamp
+\State Generate visualizations of trends
 \end{algorithmic}
 \end{algorithm}
 
-The system utilizes specialized tools and models:
-
-\begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{Multi-LLM Support:} Works with OpenAI, GitHub Copilot, or Groq providers
-    \item \textbf{Web-based Research:} Uses DuckDuckGo search to gather up-to-date nutrition facts
-    \item \textbf{Source Tracking:} Records and cites sources for all nutrition information
-    \item \textbf{Cooking Method Awareness:} Accounts for how different cooking techniques alter nutritional profiles
-    \item \textbf{Context-aware Analysis:} Maintains conversation history for complex multi-turn interactions
-    \item \textbf{Router Integration:} Provides standardized interfaces for integration with the orchestration layer
-\end{itemize}
-
-The system maintains a comprehensive SQLite database schema with tables for nutrition inquiries, nutrition records, and ingredient breakdowns. This enables rich historical analysis through interactive Plotly-based visualizations that track macro-nutrient consumption over time. Users can view trends for calories, protein, carbohydrates, and fat with customizable date ranges and target values.
+Key features include multi-LLM support, web-based research through DuckDuckGo, source tracking, cooking method awareness, context-aware analysis, and router integration. The system's database schema enables historical analysis through Plotly visualizations for tracking macro-nutrient consumption over time with customizable views.
 
 \subsection{Price Comparison Engine}
 
-The price comparison engine uses web scraping techniques to gather real-time pricing information from major Indian e-commerce platforms, including BigBasket, Amazon, Flipkart, and JioMart. The system employs:
-
-\begin{itemize}[noitemsep,topsep=0pt]
-    \item Custom scraping tools optimized for Indian e-commerce platforms
-    \item Alternative product suggestions based on price and nutritional similarity
-\end{itemize}
-
-The pricing data is presented in a comparative format, enabling users to make informed purchasing decisions based on both cost and nutritional value.
+The price comparison engine scrapes real-time pricing from Indian e-commerce platforms (BigBasket, Amazon, Flipkart, JioMart) using custom tools and suggests alternatives based on price and nutritional similarity. Data is presented comparatively for informed purchasing decisions.
 
 \subsection{Kitchen Inventory Management}
 
-The kitchen inventory management module keeps track of available ingredients and their quantities to facilitate recipe planning and grocery shopping. It leverages:
-
+The inventory management module tracks ingredients and quantities using:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item Computer vision techniques to identify ingredients from uploaded images
-    \item Vector embeddings for semantic search of inventory items
-    \item MongoDB Atlas for efficient storage and retrieval of inventory data
-    \item Streamlit interface for easy inventory management and querying
+    \item GPT-4o vision for identifying ingredients from images
+    \item Vector embeddings for semantic search capabilities
+    \item MongoDB Atlas for efficient data storage
+    \item Streamlit interface for management
 \end{itemize}
 
-The system supports image-based inventory updates, where users can upload photos of groceries or receipts, and the system automatically identifies items using GPT-4o vision capabilities. Users can review and edit the detected items before adding them to their inventory. This streamlines the inventory management process and reduces manual data entry.
-
-The RAG-based (Retrieval-Augmented Generation) query system allows users to ask natural language questions about their inventory, such as "What ingredients do I have for making pasta?" or "Which vegetables are about to expire?" The system retrieves relevant inventory information and generates helpful responses using LLM reasoning.
+Users can upload grocery photos or receipts for automatic item detection, with review options before database addition. The RAG-based query system enables natural language inventory questions like "What ingredients do I have for pasta?" or "Which vegetables will expire soon?"
 
 \subsection{Interactive User Interface}
 
-The system provides both CLI and web-based interfaces, with the Streamlit-powered dashboard offering rich visualization capabilities:
+The system offers CLI and web-based interfaces with Streamlit-powered visualizations:
 
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{Conversational Interface:} Text-based interaction with the AI assistant
-    \item \textbf{Nutrition Dashboard:} Interactive Plotly visualizations for macro-nutrient tracking
-    \item \textbf{Visualization Options:}
-    \begin{itemize}[noitemsep,topsep=0pt]
-        \item Time-series charts for calories, protein, carbohydrates, and fat
-        \item Customizable date ranges (7, 14, 30, or 90 days)
-        \item Daily target indicators for personal nutrition goals
-        \item Macro ratio analysis with pie charts showing percentage breakdowns
-        \item Daily record count tracking showing data completeness
-    \end{itemize}
-    \item \textbf{Data Export:} Options to save visualization images or download raw data
-    \item \textbf{Responsive Design:} Adapts to different screen sizes and devices
+    \item \textbf{Conversational Interface:} Text interactions with the AI assistant
+    \item \textbf{Nutrition Dashboard:} Plotly visualizations with:
+      \begin{itemize}[noitemsep,topsep=0pt]
+        \item Macro-nutrient time-series charts
+        \item Adjustable date ranges (7-90 days)
+        \item Target indicators and ratio analysis
+      \end{itemize}
+    \item \textbf{Features:} Data export options, responsive design, interactive elements
 \end{itemize}
-
-The nutrition dashboard is implemented using Plotly and Streamlit, providing interactive elements that allow users to hover over data points for detailed information, zoom into specific time periods, and toggle between different visualization types. The dashboard also includes header cards showing summary statistics like average daily calorie intake and macro distribution ratios.
 
 \section{Implementation Details}
 
-\subsection{Agent Implementation}
+\subsection{Nutrition Agent Implementation}
 
-Each specialized agent follows an implementation pattern based on LangChain's agent framework. The nutrition agent, specifically, implements:
-
+Agents follow LangChain's framework with the nutrition agent implementing:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item A comprehensive system prompt that explains the agent's purpose and output format
-    \item OpenAI functions agent creation using specialist tools for web search
-    \item Structured data extraction using Pydantic models for type safety
-    \item Multi-stage processing: first answering the query, then extracting structured data
-    \item Source tracking to maintain citation information across the processing chain
+    \item System prompt defining purpose and output format
+    \item OpenAI functions with specialized web search tools
+    \item Pydantic models for structured data extraction
+    \item Two-stage processing: answering queries then extracting data
+    \item Source tracking for citation maintenance
 \end{itemize}
 
-The nutrition agent's implementation leverages two primary strategies for data extraction:
-\begin{enumerate}[noitemsep,topsep=0pt]
-    \item Direct web search using DuckDuckGo to find current nutrition information
-    \item Post-processing of search results with LLM extraction to convert unstructured data to structured formats
-\end{enumerate}
-
-The agent passes all nutrition queries through a validation layer that ensures key parameters like serving size are normalized. After execution, it stores results in both raw and structured forms, enabling both immediate response generation and long-term trend analysis.
+Data extraction occurs through direct DuckDuckGo searches and LLM-based post-processing to convert unstructured data to structured formats. Queries pass through validation to normalize parameters, with results stored in both raw and structured forms.
 
 \subsection{Database Schema}
 
-The nutrition tracking system implements a relational SQLite database with the following structure:
-
+The Nutrition-Agent SQLite database includes three key tables:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{nutrition\_inquiries:} Stores metadata about user queries with timestamps
-    \begin{itemize}[noitemsep,topsep=0pt]
-        \item Primary key: id
-        \item Fields: query\_text, query\_type, timestamp, user\_id
-    \end{itemize}
-    \item \textbf{nutrition\_records:} Contains nutrition data for recipes and ingredients
-    \begin{itemize}[noitemsep,topsep=0pt]
-        \item Primary key: id
-        \item Foreign key: inquiry\_id references nutrition\_inquiries.id
-        \item Fields: recipe\_name, servings, calories, protein, carbohydrates, fat, fiber, sugar, sodium, raw\_analysis
-    \end{itemize}
-    \item \textbf{ingredient\_records:} Stores detailed nutrition for individual ingredients
-    \begin{itemize}[noitemsep,topsep=0pt]
-        \item Primary key: id
-        \item Foreign key: nutrition\_record\_id references nutrition\_records.id
-        \item Fields: ingredient\_name, amount, calories, protein, carbohydrates, fat, fiber, sugar, sodium
-    \end{itemize}
+    \item \textbf{nutrition\_inquiries:} Query metadata with timestamps
+    \item \textbf{nutrition\_records:} Recipe/ingredient nutrition data
+    \item \textbf{ingredient\_records:} Detailed per-ingredient nutrition
 \end{itemize}
 
-This schema design enables efficient storage and retrieval of nutrition data while supporting multiple query patterns:
-
-\begin{enumerate}[noitemsep,topsep=0pt]
-    \item Historical tracking of nutrition intake over time
-    \item Aggregation of daily macro-nutrient totals
-    \item Detailed breakdown of ingredients in complex recipes
-    \item Source attribution for nutrition information
-\end{enumerate}
-
-The database is accessed through Python utility functions that handle data insertion, structured querying, and trend analysis. This allows the system to persist user nutrition data across sessions and build personalized insights over time.
+This design supports historical tracking, daily aggregation, ingredient breakdowns, and source attribution through Python utility functions.
 
 \subsection{Routing Logic}
 
-The router agent employs a combination of keyword matching and semantic understanding to direct queries to the appropriate specialized agent. The routing algorithm:
-
+The routing logic is implemented using LangGraph, starting at a router node that evaluates the state and determines the next agent to activate.
 \begin{enumerate}[noitemsep,topsep=0pt]
-    \item Identifies key entities in the user query (food items, nutrition terms, price indicators)
-    \item Calculates relevance scores for each specialized agent
-    \item Routes the query to the highest-scoring agent or multiple agents if the query spans domains
-    \item Manages context preservation between interactions
+    \item \textbf{Router Initialization:} Defined as a conditional edge that routes based on required\_agents and completed\_agents.
+    \item \textbf{Agent Registration:} Agents are added as nodes with async handlers to process input and return updated state.
+    \item \textbf{Looping Execution:} After each agent runs, control returns to the router to evaluate the next step.
+    \item \textbf{State Management:} Agents append themselves to completed\_agents and add structured outputs (e.g., recipe\_data, inventory\_data).
+    \item \textbf{Extensibility:} New agents can be added without modifying router logic—only update the IntentParser.
 \end{enumerate}
 
-This approach ensures that user queries are handled by the most appropriate agent while maintaining conversation coherence.
+\subsection{Response Generator}
+
+The ResponseGeneratorAgent reads the current state and parsed intent to understand the user's query and the agents involved in processing it. Based on this, it selectively parses outputs such as recipe\_data, inventory\_data, shopping\_data, and health\_data, depending on which agents were used.
+ 
+It constructs a structured response tailored to the user's request by including only the relevant sections—e.g., a recipe if the user asked for one, or nutritional data if health advice was sought. This ensures precision and relevance in the system's responses while maintaining a cohesive user experience across multiple agent interactions.
 
 \section{Evaluation}
 
-The system was evaluated on several dimensions:
+\subsection{Component Performance}
 
-\subsection{Nutrition Accuracy}
-
-We evaluated the nutrition analysis component against a dataset of 200 common Indian ingredients and recipes, with comprehensive testing:
-
+\textbf{Nutrition Analysis} (tested on 200 Indian ingredients/recipes):
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{Macro-nutrient Estimation:} 92\% accuracy in identifying calories, protein, carbohydrates, and fat compared to standard nutrition databases (USDA and Indian Food Composition Tables)
-    \item \textbf{Ingredient Recognition:} 95\% accuracy in identifying and normalizing ingredient names from natural language descriptions
-    \item \textbf{Regional Variants:} 85\% accuracy in handling regional variations of ingredients (e.g., recognizing "bhindi" and "okra" as the same ingredient)
-    \item \textbf{Measurement Conversion:} 88\% accuracy in converting between different units (cups, grams, tablespoons) and handling imprecise measurements like "a pinch" or "a handful"
-    \item \textbf{Cooking Methods:} 90\% accuracy in adjusting nutritional values based on cooking methods (e.g., accounting for oil absorption during frying or water loss during baking)
-    \item \textbf{Source Quality:} 94\% of responses included reliable nutrition data sources with proper citations
+    \item Macro-nutrient estimation: 92\% accuracy vs. USDA/Indian databases
+    \item Ingredient recognition: 95\% accuracy for natural language descriptions
+    \item Regional variant handling: 85\% accuracy (e.g., "bhindi"/"okra")
+    \item Measurement conversion: 88\% accuracy across units
+    \item Cooking method adjustments: 90\% accuracy for nutritional changes
+    \item Source citation quality: 94\% included reliable sources
 \end{itemize}
 
-Tests specifically focused on Indian cuisine demonstrated the agent's ability to handle complex multi-ingredient recipes like biryani, dosa, and various curry dishes while maintaining appropriate per-serving calculations across different portion sizes.
-
-\subsection{Price Comparison Effectiveness}
-
-The price comparison engine was evaluated on 150 common grocery items across major platforms:
+\textbf{Price Comparison} (150 grocery items):
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item 88\% accuracy in identifying the lowest price option
-    \item Average savings of 12\% when following system recommendations
-    \item 93\% success rate in product matching across different platforms
+    \item Lowest price identification: 88\% accuracy
+    \item Average savings: 12\% with recommendations
+    \item Cross-platform product matching: 93\% success
 \end{itemize}
 
-\subsection{Inventory Management Accuracy}
-
-The inventory management system was evaluated on:
+\textbf{Inventory Management}:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item 86\% accuracy in ingredient identification from grocery images
-    \item 91\% precision in quantity extraction from receipts and images
-    \item 94\% accuracy in responding to inventory-related queries through the RAG system
+    \item Image ingredient identification: 86\% accuracy
+    \item Receipt quantity extraction: 91\% precision
+    \item RAG query responses: 94\% accuracy
 \end{itemize}
 
-\subsection{User Experience}
-
-User testing with 25 participants showed:
+\textbf{User Experience} (25 participants):
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item 85\% satisfaction with the integrated experience
-    \item 78\% found the nutrition insights actionable
-    \item 92\% reported that price comparison features influenced purchasing decisions
+    \item 85\% overall satisfaction
+    \item 78\% found nutrition insights actionable
+    \item 92\% influenced by price comparison features
 \end{itemize}
 
 \section{Conclusion \& Future Work}
 
-Masala Mamu demonstrates the effectiveness of a multi-agent approach to kitchen assistance, combining nutrition awareness with price optimization in a unified interface. The modular architecture allows for future expansion and specialization.
+Masala Mamu demonstrates the effectiveness of multi-agent kitchen assistance, combining nutrition awareness with price optimization in a unified interface. The modular architecture enables future expansion.
 
-Future work includes:
+Future work:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item Integration of image recognition for analyzing grocery receipts and food photos
-    \item Expanded recipe recommendation based on nutrition goals and available ingredients
-    \item Enhanced personalization through long-term dietary pattern analysis
-    \item Integration with meal planning and grocery delivery services
+    \item Enhanced image recognition for receipts/food photos
+    \item Nutrition-goal-based recipe recommendations
+    \item Long-term dietary pattern analysis
+    \item Meal planning and grocery delivery integration
 \end{itemize}
-
-The system represents a step toward more holistic AI assistance in daily food decisions, bridging the gap between nutrition knowledge and practical shopping considerations.
 
 \bibliographystyle{ieeetr}
 \begin{thebibliography}{9}
@@ -442,12 +355,6 @@ Led the development of the nutrition analysis agent, implementing a comprehensiv
 \centering
 \fbox{[Screenshot placeholder: Inventory management with image recognition]}
 \caption{Inventory Management: The image shows the system correctly identifying various vegetables from an uploaded grocery photo. The interface allows users to review and edit detected items before adding them to their inventory database.}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\fbox{[Screenshot placeholder: Chatbot interface with multi-agent responses]}
-\caption{Multi-Agent Chatbot: This screenshot demonstrates the conversational interface handling a complex query that spans multiple domains, with the system providing nutritional information alongside price comparison data for recommended ingredients.}
 \end{figure}
 
 \end{document}
