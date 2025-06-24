@@ -173,7 +173,7 @@ Each agent functions as a node in the graph, processing its specialized task bef
 
 \subsection{Nutrition Analysis System}
 
-The nutrition analysis component provides macro-nutrient information through an LLM-powered approach with web search capabilities for up-to-date data:
+The nutrition analysis component provides macro-nutrient information through an LLM-powered approach with search augmentation for up-to-date data:
 
 \begin{algorithm}
 \caption{Nutrition Analysis Workflow}
@@ -187,7 +187,21 @@ The nutrition analysis component provides macro-nutrient information through an 
 \end{algorithmic}
 \end{algorithm}
 
-Key features include multi-LLM support, web-based research through DuckDuckGo, source tracking, cooking method awareness, context-aware analysis, and router integration. The system's database schema enables historical analysis through Plotly visualizations for tracking macro-nutrient consumption over time with customizable views.
+Key technical features include:
+
+\begin{itemize}[noitemsep,topsep=0pt]
+    \item \textbf{Search Augmentation:} Custom DuckDuckGo wrapper for nutrition data retrieval
+
+    \item \textbf{Source Tracking:} Attribution system for data provenance and transparency
+
+    \item \textbf{Cooking Method Awareness:} Adjusts nutrition based on cooking techniques
+
+    \item \textbf{Structured Data Models:} Pydantic models (MacroNutrient, IngredientNutrition)
+
+    \item \textbf{Indian Cuisine Support:} Regional ingredient recognition and unit conversion
+\end{itemize}
+
+The relational SQLite database enables historical analysis with per-ingredient breakdowns, supporting comprehensive analytics through the dashboard interface.
 
 \subsection{Price Comparison Engine}
 
@@ -207,56 +221,84 @@ Users can upload grocery photos or receipts for automatic item detection, with r
 
 \subsection{Recipe Generation Service}
 
-The recipe generation service provides intelligent dish recommendations based on available ingredients and user preferences:
+The recipe generation service provides intelligent dish recommendations tailored to available ingredients and user preferences. Key features include:
 
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{Ingredient-Aware Recommendations:} Suggests dishes that can be prepared using available inventory
-    \item \textbf{Structured Response:} Returns JSON-formatted recipes with ingredient quantities and step-by-step instructions
-    \item \textbf{Inventory Integration:} Leverages available ingredient data to make practical cooking suggestions
+    \item \textbf{User Preferences Support:} Accounts for dietary restrictions (e.g., vegan, gluten-free) and preferred cuisine types (e.g., Italian, Indian) to generate personalized recipes
+    \item \textbf{Structured Response:} Returns recipes in a consistent JSON format, including ingredient quantities and step-by-step instructions
+    \item \textbf{Inventory Integration:} Leverages available ingredient data to recommend practical, waste-reducing meal options
+    \item \textbf{Missing Ingredient Identification:} Assists the router agent in detecting any missing ingredients and passes this information to the price comparison service, which then recommends the most cost-effective platforms for purchasing them
 \end{itemize}
 
-The service uses prompt engineering to generate contextually relevant recipes and maintains a consistent output structure through carefully designed prompts. When integrated with the inventory system, it can suggest dishes optimized to use available ingredients, reducing food waste and simplifying meal planning.
+The service uses prompt engineering to ensure contextually relevant, structured recipe outputs. Integration with inventory and shopping services simplifies meal planning while supporting dietary needs and budget-conscious decisions.
 
-\subsection{Interactive User Interface}
 
-The system offers CLI and web-based interfaces with Streamlit-powered visualizations:
+\subsection{Nutrition Analytics Dashboard}
+
+The Plotly-powered nutrition dashboard provides detailed nutritional insights through:
 
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{Conversational Interface:} Text interactions with the AI assistant
-    \item \textbf{Nutrition Dashboard:} Plotly visualizations with:
+    \item \textbf{Macro-nutrient Tracking:}
       \begin{itemize}[noitemsep,topsep=0pt]
-        \item Macro-nutrient time-series charts
-        \item Adjustable date ranges (7-90 days)
-        \item Target indicators and ratio analysis
+        \item Multi-panel time-series of calories, protein, carbs, and fat
+        \item Configurable date ranges (7-90 days) with target value indicators
       \end{itemize}
-    \item \textbf{Features:} Data export options, responsive design, interactive elements
+
+    \item \textbf{Nutritional Balance:}
+      \begin{itemize}[noitemsep,topsep=0pt]
+        \item Macro-nutrient distribution pie charts with ratio analysis
+        \item Caloric source breakdown with percentage calculations
+      \end{itemize}
+
+    \item \textbf{Interactive Features:}
+      \begin{itemize}[noitemsep,topsep=0pt]
+        \item Customizable nutritional targets and data filtering
+        \item Export options for reports and multi-user support
+        \item Consistency tracking to identify gaps in nutrition records
+      \end{itemize}
 \end{itemize}
+
+Built with Streamlit and connected directly to the SQLite database, the dashboard dynamically updates charts based on the latest nutrition data, providing immediate visual feedback on dietary patterns and trends.
 
 \section{Implementation Details}
 
 \subsection{Nutrition Agent Implementation}
 
-Agents follow LangChain's framework with the nutrition agent implementing:
+The nutrition agent uses LangChain's framework with:
+
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item System prompt defining purpose and output format
-    \item OpenAI functions with specialized web search tools
-    \item Pydantic models for structured data extraction
-    \item Two-stage processing: answering queries then extracting data
-    \item Source tracking for citation maintenance
+    \item \textbf{System Prompt:} Specialized prompt with structured output requirements and explicit guidance on nutrition analysis
+
+    \item \textbf{Function-Calling Architecture:} OpenAI functions with custom NutritionSearchTool for ingredient and recipe queries
+
+    \item \textbf{Data Models:} Pydantic models (MacroNutrient, IngredientNutrition, RecipeNutrition) for structured data handling
+
+    \item \textbf{Processing Pipeline:} Query classification, web search, data consolidation, and unit normalization
 \end{itemize}
 
-Data extraction occurs through direct DuckDuckGo searches and LLM-based post-processing to convert unstructured data to structured formats. Queries pass through validation to normalize parameters, with results stored in both raw and structured forms.
+Router integration is handled through a NutritionAgentRouter class that manages intent detection, conversation context, and structured responses compatible with the response generator.
+
+Data extraction features include:
+
+\begin{itemize}[noitemsep,topsep=0pt]
+    \item Optimized search queries for nutrition databases
+    \item LLM-based extraction from semi-structured content
+    \item Unit conversion for international and Indian measurements
+    \item Error handling with fallback mechanisms
+\end{itemize}
+
+The implementation stores both raw and processed data for auditability while providing accurate nutrition information with source citations.
 
 \subsection{Database Schema}
 
 The Nutrition-Agent SQLite database includes three key tables:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{nutrition\_inquiries:} Query metadata with timestamps
-    \item \textbf{nutrition\_records:} Recipe/ingredient nutrition data
-    \item \textbf{ingredient\_records:} Detailed per-ingredient nutrition
+    \item \textbf{nutrition\_inquiries:} Query metadata with timestamps and user identifiers
+    \item \textbf{nutrition\_records:} Recipe/ingredient macro-nutrient data with foreign keys to inquiries
+    \item \textbf{ingredient\_records:} Detailed per-ingredient nutrition with standardized units
 \end{itemize}
 
-This design supports historical tracking, daily aggregation, ingredient breakdowns, and source attribution through Python utility functions.
+This relational design enables time-series analysis of nutrition patterns, per-ingredient nutritional impact assessment, data integrity through foreign key constraints, and optimized queries for dashboard visualizations. Database utility functions abstract complex queries while maintaining performance with large datasets spanning months of nutrition records.
 
 \subsection{Routing Logic}
 
@@ -285,21 +327,6 @@ Used OCR Readers for reading the grocery bills and handwritten texts, easyOCR as
 
 Similarly, a dataset of different vegetables is crawled from web for comparing different models for image detection. A clip model using a small patch and large patch of openAI Vit pretrained model is compared with gpt-4O.
 Clip model with large patch performed much better with higher accuracy but failed in distinguishing alike items eg: Peas vs Beans. Gpt-4o performed with full accuracy in identifying individual as well as group of vegetables which are declutterred. For the below comparison used individual and decluttered bunch of vegetables’ images
-
-\subsection{Nutrition Accuracy}
-
-We evaluated the nutrition analysis component against a dataset of 200 common Indian ingredients and recipes, with comprehensive testing:
-
-\begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{Macro-nutrient Estimation:} 92\% accuracy in identifying calories, protein, carbohydrates, and fat compared to standard nutrition databases (USDA and Indian Food Composition Tables)
-    \item \textbf{Ingredient Recognition:} 95\% accuracy in identifying and normalizing ingredient names from natural language descriptions
-    \item \textbf{Regional Variants:} 85\% accuracy in handling regional variations of ingredients (e.g., recognizing "bhindi" and "okra" as the same ingredient)
-    \item \textbf{Measurement Conversion:} 88\% accuracy in converting between different units (cups, grams, tablespoons) and handling imprecise measurements like "a pinch" or "a handful"
-    \item \textbf{Cooking Methods:} 90\% accuracy in adjusting nutritional values based on cooking methods (e.g., accounting for oil absorption during frying or water loss during baking)
-    \item \textbf{Source Quality:} 94\% of responses included reliable nutrition data sources with proper citations
-\end{itemize}
-
-Tests specifically focused on Indian cuisine demonstrated the agent's ability to handle complex multi-ingredient recipes like biryani, dosa, and various curry dishes while maintaining appropriate per-serving calculations across different portion sizes.
 
 \subsection{Price Comparison Effectiveness}
 
