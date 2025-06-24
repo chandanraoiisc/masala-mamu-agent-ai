@@ -7,13 +7,10 @@ from typing import Optional, List, Dict, Any
 import json
 import os
 import sys
+import requests
 
 # Import nutrition dashboard integration
 from nutrition_dashboard import render_nutrition_dashboard_page
-
-# LangChain/LangGraph imports (assuming these are from your route_agent.py)
-# Make sure run_price_agent_sync is callable from here.
-from route_agent import run_price_agent_sync
 
 # Voice Input/Output imports
 import speech_recognition as sr
@@ -198,82 +195,26 @@ body, .stApp {
     right: 2.5rem;
     bottom: 7.5rem;
     background: #2196f3;
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    width: 2.7rem;
-    height: 2.7rem;
-    font-size: 1.3rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(33,150,243,0.13);
-    z-index: 200;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.scroll-bottom-btn:hover {
-    background: #1976d2;
-}
-.product-card {
-    border: 1px solid #e0e0e0;
-    border-radius: 0.8rem;
-    padding: 0.8rem;
-    margin-top: 0.7rem;
-    background-color: #fcfcfc;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.03);
-}
-.product-title {
-    font-weight: 600;
-    font-size: 1.05rem;
-    margin-bottom: 0.5rem;
-    color: #333;
-}
-.product-offer {
-    font-size: 0.95rem;
-    color: #555;
-    margin-bottom: 0.2rem;
-    display: flex;
-    align-items: center;
-}
-.product-cheapest {
-    font-weight: 600;
-    color: #28a745;
-}
-.product-expensive {
-    color: #dc3545;
-}
-.product-savings {
-    font-weight: 600;
-    color: #17a2b8;
-}
-
-/* Safari-specific audio player styling */
-.safari-audio-player {
-    width: 100%;
-    max-width: 300px;
-    margin: 10px 0;
-    border-radius: 8px;
-    background: #f5f5f5;
-}
-
-.play-audio-btn {
-    background: linear-gradient(90deg, #4caf50 60%, #66bb6a 100%);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 16px;
-    font-size: 14px;
-    cursor: pointer;
-    margin: 5px 0;
-    transition: background 0.2s;
-}
-
-.play-audio-btn:hover {
-    background: linear-gradient(90deg, #388e3c 60%, #4caf50 100%);
 }
 </style>
 """, unsafe_allow_html=True)
+
+def check_api_health():
+    """Checks if the API is accessible and returns health status."""
+    try:
+        # Extract the base URL from the query endpoint
+        base_url = st.session_state.api_url.rsplit('/', 1)[0]
+        health_url = f"{base_url}/health"
+
+        response = requests.get(health_url, timeout=5)
+        if response.status_code == 200:
+            health_data = response.json()
+            return True, health_data
+        else:
+            return False, {"status": "unhealthy", "error": f"HTTP {response.status_code}"}
+    except Exception as e:
+        logger.error(f"API health check failed: {str(e)}")
+        return False, {"status": "unreachable", "error": str(e)}
 
 # ------------------------- Session State Initialization -------------------------
 if "messages" not in st.session_state:
@@ -283,7 +224,10 @@ if "listening" not in st.session_state:
     st.session_state.listening = False
 
 if "api_key" not in st.session_state:
-    st.session_state.api_key = os.getenv("GOOGLE_API_KEY", "")
+    st.session_state.api_key = os.getenv("API_KEY", "")
+
+if "api_url" not in st.session_state:
+    st.session_state.api_url = os.getenv("AGENTIC_FLOW_API_URL", "http://localhost:8000/query")
 
 if "enable_tts" not in st.session_state:
     st.session_state.enable_tts = True
@@ -303,98 +247,72 @@ def init_speech_engines():
     """Initializes speech recognition and sets up TTS availability."""
     try:
         recognizer = sr.Recognizer()
-        logger.info("SpeechRecognizer initialized.")
-        return recognizer, True
+        tts_available = True
     except Exception as e:
-        logger.error(f"Speech engine initialization error: {str(e)}")
-        return None, False
+        logger.error(f"Speech engine initialization error: {e}")
+        recognizer = None
+        tts_available = False
+    return recognizer, tts_available
 
 recognizer, tts_available = init_speech_engines()
 
-# ------------------------- Helper Functions -------------------------
-def speech_to_text() -> Optional[str]:
-    """Convert speech to text using microphone"""
+def recognize_speech():
+    """Uses the microphone to capture speech and convert it to text."""
     if not recognizer:
-        st.error("Speech recognition not available. Check microphone setup.")
-        return None
+        return "Speech recognition is not available."
 
     try:
         with sr.Microphone() as source:
             st.session_state.listening = True
-            st.toast("🎤 Listening... Speak now!")
             recognizer.adjust_for_ambient_noise(source, duration=0.5)
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
+            audio = recognizer.listen(source, timeout=5)
+        st.session_state.listening = False
 
-        st.toast("🔄 Processing speech...")
-        st.session_state.listening = False
-        return recognizer.recognize_google(audio)
-    except sr.WaitTimeoutError:
-        st.warning("⏰ No speech detected. Please try again.")
-        logger.warning("Speech recognition timed out.")
-    except sr.UnknownValueError:
-        st.warning("🤷 Could not understand the speech.")
-        logger.warning("Speech recognition could not understand audio.")
-    except sr.RequestError as e:
-        st.error(f"❌ Speech recognition service error: {str(e)}")
-        logger.error(f"Speech recognition service error: {e}", exc_info=True)
+        # Attempt to recognize the speech
+        try:
+            return recognizer.recognize_google(audio)
+        except sr.UnknownValueError:
+            return "I couldn't understand what you said."
+        except sr.RequestError as e:
+            return f"Speech recognition service error: {e}"
+
     except Exception as e:
-        st.error(f"❌ Unexpected error during speech recognition: {str(e)}")
-        logger.error(f"Unexpected error during speech recognition: {e}", exc_info=True)
-    finally:
         st.session_state.listening = False
-    return None
+        logger.error(f"Speech recognition error: {str(e)}", exc_info=True)
+        return f"Error: {str(e)}"
 
 def text_to_speech_safari_compatible(text: str) -> Optional[Dict[str, Any]]:
-    """
-    Convert text to speech with Safari compatibility.
-    Returns both audio bytes and base64 encoded data for different rendering methods.
-    """
+    """Converts text to speech, with special handling for Safari browser."""
     if not st.session_state.enable_tts or not tts_available:
-        logger.info("Text-to-Speech is disabled or not available.")
         return None
 
     try:
-        # First, try to parse the structured response to extract just the summary
-        parsed_response = parse_structured_response(text)
-
-        # If we have a structured response with a summary, use that
-        if parsed_response and "summary" in parsed_response and parsed_response["summary"]:
-            clean_text = parsed_response["summary"]
-            logger.info(f"Using extracted summary for TTS: {clean_text[:100]}...")
-        else:
-            # Fallback to cleaning the entire text
-            clean_text = text
-            logger.info("No structured summary found, using full text for TTS")
-
-        # Clean text for TTS (remove markdown, HTML, etc.)
-        clean_text = re.sub(r'<[^>]+>', '', clean_text)
-        clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_text)
-        clean_text = re.sub(r'\*(.+?)\*', r'\1', clean_text)
-        clean_text = re.sub(r'[{}]', '', clean_text)  # Remove JSON formatting
-        clean_text = re.sub(r'`json.*?`', '', clean_text, flags=re.DOTALL)  # Remove JSON code blocks
+        # Clean text for TTS
+        clean_text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Remove Markdown bold
+        clean_text = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', clean_text)  # Remove Markdown links
         clean_text = re.sub(r'```.*?```', '', clean_text, flags=re.DOTALL)  # Remove code blocks
+        clean_text = re.sub(r'#+ ', '', clean_text)  # Remove Markdown headings
+        clean_text = re.sub(r'\n\s*\n', '\n', clean_text)  # Compress newlines
         clean_text = clean_text.strip()
 
-        # Limit text length for better performance
-        if len(clean_text) > 500:
-            clean_text = clean_text[:500] + "..."
+        # Limit TTS to reasonable length
+        if len(clean_text) > 3000:
+            logger.info(f"TTS text too long ({len(clean_text)} chars), truncating...")
+            clean_text = clean_text[:3000] + "..."
 
-        # Skip TTS if text is too short or empty
-        if len(clean_text.strip()) < 10:
-            logger.info("Text too short for TTS, skipping")
-            return None
-
+        # Generate audio
         tts = gTTS(text=clean_text, lang='en', slow=False)
-        audio_fp = BytesIO()
-        tts.write_to_fp(audio_fp)
-        audio_fp.seek(0)
 
-        audio_bytes = audio_fp.read()
+        # Save to BytesIO buffer instead of file
+        audio_buffer = BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_buffer.seek(0)  # Go to start of the BytesIO buffer
 
-        # Create base64 encoded version for Safari compatibility
-        audio_base64 = base64.b64encode(audio_bytes).decode()
+        # Get the audio data as bytes
+        audio_bytes = audio_buffer.getvalue()
 
-        logger.info(f"Text converted to speech with Safari compatibility. Clean text: {clean_text[:100]}...")
+        # Convert to base64 for Safari compatibility
+        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
 
         return {
             "audio_bytes": audio_bytes,
@@ -498,85 +416,43 @@ def parse_structured_response(response_str: str) -> dict:
     if structured_data:
         return {
             "summary": response_cleaned,
-            "products": structured_data.get("products", []),
-            "has_structured_data": True,
-            "json_summary": structured_data.get("summary", "")
+            "structured_data": structured_data
         }
     else:
-        # If no valid JSON found, return entire cleaned response as summary
         return {
             "summary": response_cleaned,
-            "products": [],
-            "has_structured_data": False
+            "structured_data": None
         }
 
-def render_message_content(message: Dict[str, Any]):
-    """Render chat message with proper styling and Safari-compatible audio"""
-    role_class = "user-message" if message["role"] == "user" else "bot-message"
-    timestamp = message.get("timestamp", datetime.now().strftime("%H:%M:%S"))
-    avatar = "https://i.imgur.com/8Km9tLL.png" if message["role"] == "user" else "https://i.imgur.com/1X4rC7F.png"
+def render_message_bubble(message: dict):
+    """Renders a single message bubble with advanced formatting."""
+    is_user = message["role"] == "user"
+    bubble_class = "user-message" if is_user else "bot-message"
+    avatar_img = "https://avatars.githubusercontent.com/u/151195195?v=4" if is_user else "https://i.ibb.co/9Vz3Ncx/masalamamu.jpg"
 
-    message_html = f'<div class="chat-message {role_class}">'
-    message_html += f'<div class="message-header"><img src="{avatar}" class="avatar">' \
-                    f'{"You" if message["role"] == "user" else "🌶️ Masala Mamu"} • {timestamp}</div>'
-    message_html += '<div class="message-content">'
+    # Header with avatar and timestamp
+    header_name = "You" if is_user else "Masala Mamu"
+    timestamp = message.get("timestamp", "")
 
+    message_html = f'''
+    <div class="chat-message {bubble_class}">
+        <div class="message-header">
+            <img src="{avatar_img}" class="avatar" />
+            <strong>{header_name}</strong> <span>•</span> <span>{timestamp}</span>
+        </div>
+        <div class="message-content">
+    '''
+
+    # Process based on content type
     if message["role"] == "assistant":
-        parsed = parse_structured_response(message["content"])
+        # Parse possible structured data
+        parsed_data = parse_structured_response(message["content"])
+        content = parsed_data["summary"]
 
-        if parsed.get("has_structured_data") and parsed.get("products"):
-            # Display the complete summary (JSON structure removed, only readable text)
-            summary_text = parsed['summary']
-
-            # Convert markdown-like formatting to HTML
-            summary_text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', summary_text)
-            summary_text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', summary_text)
-            summary_text = re.sub(r'🔥 \*\*BEST VALUE:\*\*', r'🔥 <strong>BEST VALUE:</strong>', summary_text)
-            summary_text = re.sub(r'💡 \*\*Shopping Tips:\*\*', r'💡 <strong>Shopping Tips:</strong>', summary_text)
-
-            # Convert bullet points to HTML lists
-            lines = summary_text.split('\n')
-            processed_lines = []
-            in_list = False
-
-            for line in lines:
-                line = line.strip()
-                if line.startswith('*   ') or line.startswith('- '):
-                    if not in_list:
-                        processed_lines.append('<ul>')
-                        in_list = True
-                    processed_lines.append(f'<li>{line[4:].strip()}</li>')
-                else:
-                    if in_list:
-                        processed_lines.append('</ul>')
-                        in_list = False
-                    if line:
-                        processed_lines.append(f'<p>{line}</p>')
-
-            if in_list:
-                processed_lines.append('</ul>')
-
-            formatted_summary = ''.join(processed_lines)
-            message_html += formatted_summary
-
-            # Render product tables
-            for product in parsed["products"]:
-                message_html += f'<div class="product-card">'
-                message_html += f'<div class="product-title">{product.get("brand", "")} - {product["name"]}</div>'
-                message_html += '<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">'
-                message_html += '<tr style="background-color: #f5f5f5;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Retailer</th><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Price</th></tr>'
-
-                for offer in product["offers"]:
-                    quantity = offer.get('quantity', '')
-                    quantity_text = f" ({quantity})" if quantity else ""
-                    message_html += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{offer["platform"]}</td><td style="padding: 8px; border: 1px solid #ddd;">{offer["price"]}{quantity_text}</td></tr>'
-
-                message_html += '</table></div>'
-        else:
-            # No structured data, render as plain text with basic formatting
-            content = parsed['summary']
-            content = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', content)
-            content = re.sub(r'\*(.+?)\*', r'<em>\1</em>', content)
+        # Format assistant message with Markdown and special handling
+        if parsed_data["structured_data"] and "products" in parsed_data["structured_data"]:
+            products = parsed_data["structured_data"]["products"]
+            # Detailed product comparison rendering would go here
             content = content.replace('\n', '<br>')
             message_html += f"<p>{content}</p>"
     else:
@@ -597,18 +473,56 @@ def render_message_content(message: Dict[str, Any]):
         st.audio(message["audio"], format='audio/mp3')
 
 def get_chatbot_response(user_question: str) -> str:
-    """Gets response from the Masala Mamu agent."""
+    """Gets response from the Masala Mamu agent through the API."""
     if not st.session_state.api_key:
-        return "Please enter your Google API Key in the sidebar settings."
+        return "Please enter your API Key in the sidebar settings."
 
     try:
-        logger.info(f"Calling Masala Mamu agent with: {user_question}")
-        response = run_price_agent_sync(user_question, st.session_state.api_key)
-        logger.info(f"Agent response received (first 100 chars): {response[:100]}...")
-        return response
+        logger.info(f"Calling Masala Mamu agent API with: {user_question}")
+
+        # Get the API URL from session state
+        api_url = st.session_state.api_url
+
+        # Prepare the request payload
+        payload = {
+            "query": user_question
+        }
+
+        # Add API key to headers if needed
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {st.session_state.api_key}"
+        }
+
+        # Make the API request
+        response = requests.post(
+            api_url,
+            json=payload,
+            headers=headers,
+            timeout=3600  # Adjust timeout as needed
+        )
+
+        # Check if the request was successful
+        response.raise_for_status()
+
+        # Parse the JSON response
+        result = response.json()
+
+        # Extract the relevant response content from the result
+        if "response" in result:
+            response_text = result["response"]
+        else:
+            # In case the API returns a different structure
+            response_text = str(result)
+
+        logger.info(f"Agent API response received (first 100 chars): {response_text[:100]}...")
+        return response_text
+    except requests.RequestException as e:
+        logger.error(f"API request error: {e}", exc_info=True)
+        return f"An error occurred while connecting to the agent API: {str(e)}"
     except Exception as e:
-        logger.error(f"Error calling agent: {e}", exc_info=True)
-        return f"An error occurred while getting a response: {str(e)}"
+        logger.error(f"Error processing agent response: {e}", exc_info=True)
+        return f"An error occurred while processing the response: {str(e)}"
 
 def process_user_input(user_input: str):
     """Processes user input, gets response, and updates session state."""
@@ -650,9 +564,24 @@ def process_user_input(user_input: str):
             message_data["audio"] = audio_data["audio_bytes"]
 
         st.session_state.messages.append(message_data)
-    st.rerun()
 
-# ------------------------- Streamlit UI Layout -------------------------
+def handle_image_upload(uploaded_file):
+    """Process the uploaded image."""
+    try:
+        # Save uploaded file to a temp location
+        file_path = f"temp_uploads/{uploaded_file.name}"
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+
+        st.sidebar.success(f"Received image: {uploaded_file.name}")
+
+        # Process the image (placeholder for integration with receipt processing)
+        # TODO: Add OCR/image processing here
+
+    except Exception as e:
+        st.sidebar.error(f"Error processing image: {str(e)}")
 
 # Sidebar
 with st.sidebar:
@@ -665,11 +594,43 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Settings")
     st.session_state.api_key = st.text_input(
-        "Google API Key",
+        "API Key",
         value=st.session_state.api_key,
         type="password",
-        help="Get your key from Google AI Studio"
+        help="API Key for authentication"
     )
+
+    # Add API URL configuration
+    if "api_url" not in st.session_state:
+        st.session_state.api_url = "http://localhost:8000/query"
+
+    st.session_state.api_url = st.text_input(
+        "Agentic Flow API URL",
+        value=st.session_state.api_url,
+        help="URL for the agentic-flow API endpoint (e.g., http://localhost:8000/query)"
+    )
+
+    # Add API health check button
+    if st.button("Check API Connection"):
+        with st.spinner("Checking API connection..."):
+            is_healthy, health_data = check_api_health()
+
+        if is_healthy:
+            st.success(f"✅ API is healthy: {health_data.get('status', 'connected')}")
+            if 'azure_openai' in health_data:
+                st.info(f"LLM Status: {health_data['azure_openai']}")
+        else:
+            st.error(f"❌ API is not accessible: {health_data.get('error', 'Unknown error')}")
+            st.info("Make sure the agentic-flow app is running and the URL is correct.")
+
+    st.markdown("---")
+    st.markdown("### Receipt/Grocery Upload")
+    uploaded_file = st.file_uploader("Upload receipt or grocery image", type=["jpg", "jpeg", "png"])
+    if st.button("Process Image"):
+        if uploaded_file is not None:
+            handle_image_upload(uploaded_file)
+        else:
+            st.sidebar.warning("Please upload an image first.")
 
     st.markdown("---")
     st.session_state.enable_tts = st.checkbox(
@@ -683,45 +644,77 @@ with st.sidebar:
     if st.button("🧹 Clear Chat", key="clear_chat_btn"):
         st.session_state.messages = []
         st.session_state.input_key = "input_1"
-        st.session_state.input_content = ""
-        st.rerun()
 
-# Main interface based on selected page
-if page == "Chat Assistant":
-    st.markdown('<h1 style="color: #212121;">🌶️ Masala Mamu: AI Kitchen Assistant</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #212121;"><i>Your personal shopping assistant for comparing grocery prices across India</i></p>', unsafe_allow_html=True)
-
-    # Chat display
-    with st.container():
-        container_class = "chat-container empty" if not st.session_state.messages else "chat-container"
-        st.markdown(f'<div class="{container_class}">', unsafe_allow_html=True)
-
-        if not st.session_state.messages:
-            st.markdown("""
-            <div class="chat-message bot-message" style="max-width: 100%; margin: 0;">
-                <div class="message-header"><img src="https://i.imgur.com/1X4rC7F.png" class="avatar">🌶️ Masala Mamu</div>
-                <div class="message-content">
-                    <p>Hello! I can help you compare prices of groceries and household items across various platforms in India.</p>
-                    <p>Try asking: <strong>"What is the price of eggs?"</strong> or <strong>"Compare prices for Surf Excel detergent"</strong></p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            for message in st.session_state.messages:
-                render_message_content(message)
-
-        st.markdown('</div>', unsafe_allow_html=True)
-else:
-    # Render nutrition dashboard page
+# Page routing
+if page == "Nutrition Dashboard":
     render_nutrition_dashboard_page()
+else:
+    # Main chat interface
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; margin-bottom: 1.5rem;'>🌶️ Masala Mamu: AI Kitchen Assistant</h1>", unsafe_allow_html=True)
 
-# Scroll to bottom
-if st.session_state.messages:
-    st.markdown('''<script>window.scrollTo(0, document.body.scrollHeight);</script>''', unsafe_allow_html=True)
+    # Welcome message if no messages
+    if len(st.session_state.messages) == 0:
+        welcome_msg = {
+            "role": "assistant",
+            "content": "👋 Hello! I'm Masala Mamu, your AI kitchen assistant. How can I help you today? Ask me about:\n\n"
+                      "🍽️ Recipe ideas\n"
+                      "🛒 Grocery prices & comparisons\n"
+                      "🥗 Nutrition advice\n"
+                      "🧾 Receipt analysis\n\n"
+                      "Try saying: *'What's a good quick dinner I can make with chicken and vegetables?'* or *'Where can I find the best price for organic milk?'*",
+            "timestamp": datetime.now().strftime("%H:%M:%S")
+        }
 
-# Fixed input bar at the bottom
-st.markdown('<div class="input-bar">', unsafe_allow_html=True)
-col_input, col_voice_btn, col_ask_btn = st.columns([8, 1, 2])
+        # Add audio to welcome message if TTS is enabled
+        if st.session_state.enable_tts:
+            audio_data = text_to_speech_safari_compatible(welcome_msg["content"])
+            if audio_data:
+                welcome_msg["audio_data"] = audio_data
+                welcome_msg["audio"] = audio_data["audio_bytes"]
+
+        st.session_state.messages.append(welcome_msg)
+
+    # Display chat messages
+    for message in st.session_state.messages:
+        render_message_bubble(message)
+
+    # Add a div for auto-scrolling
+    st.markdown('<div id="chat_end"></div>', unsafe_allow_html=True)
+
+    # Input area - fixed at bottom using custom CSS
+    st.markdown('<div class="input-bar">', unsafe_allow_html=True)
+    st.markdown('<div class="input-inner">', unsafe_allow_html=True)
+
+    # Create columns for input layout
+    col_input, col_voice_btn, col_ask_btn = st.columns([10, 1, 2])
+
+    # Add JavaScript for handling Enter key press
+    st.markdown('''<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Find the textarea after it's rendered
+    setTimeout(function() {
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(function(textarea) {
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const buttons = document.querySelectorAll('button');
+                    for (let button of buttons) {
+                        if (button.innerText === 'Ask') {
+                            button.click();
+                            return;
+                        }
+                    }
+                }
+            });
+        });
+    }, 1000);
+});
+</script>''', unsafe_allow_html=True)
+
+if 'enter_pressed' not in st.session_state:
+    st.session_state.enter_pressed = False
 
 with col_input:
     user_query_input = st.text_area(
@@ -773,8 +766,13 @@ if st.session_state.listening:
     .loading-dots span {
         animation: blink 1.4s infinite;
         font-size: 1.5rem;
-        line-height: 1;
-        opacity: 0;
+        height: 5px;
+        width: 5px;
+        margin: 0 2px;
+        border-radius: 50%;
+        background-color: #ff9800;
+        display: inline-block;
+        opacity: 0.6;
     }
     .loading-dots span:nth-child(2) {
         animation-delay: 0.2s;
@@ -783,45 +781,45 @@ if st.session_state.listening:
         animation-delay: 0.4s;
     }
     @keyframes blink {
-        0% { opacity: 0; }
-        50% { opacity: 1; }
-        100% { opacity: 0; }
+        0% { transform: scale(0.8); opacity: 0.3; }
+        50% { transform: scale(1.2); opacity: 1; }
+        100% { transform: scale(0.8); opacity: 0.3; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Input Handling Logic
-if (ask_clicked or (user_query_input and st.session_state.get('enter_pressed', False))) and user_query_input.strip():
-    if 'enter_pressed' in st.session_state:
-        st.session_state.enter_pressed = False
-    process_user_input(user_query_input)
+# Handle voice input button click
+if voice_clicked:
+    if recognizer:
+        with st.spinner("🎤 Listening..."):
+            speech_text = recognize_speech()
+        if speech_text and speech_text != "I couldn't understand what you said." and not speech_text.startswith("Error:"):
+            st.session_state.input_content = speech_text
+            process_user_input(speech_text)
+        elif speech_text:  # Show any error or couldn't understand messages
+            st.info(f"🎤 {speech_text}")
+    else:
+        st.error("🎤 Speech recognition is not available. Check console for details.")
 
-if voice_clicked and not st.session_state.listening:
-    st.session_state.listening = True
-    st.rerun()
-elif voice_clicked and st.session_state.listening:
-    st.session_state.listening = False
-    st.rerun()
-elif st.session_state.listening:
-    recognized_text = speech_to_text()
-    if recognized_text:
-        process_user_input(recognized_text)
+# Handle submit button click
+if ask_clicked and st.session_state.input_content.strip():
+    process_user_input(st.session_state.input_content)
 
-# Enter key handling
-st.markdown('''<script>
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey && document.activeElement.tagName === 'TEXTAREA') {
-        window.parent.postMessage({isEnterPressed: true}, '*');
-    }
-});
-window.addEventListener('message', function(event) {
-    if (event.data && event.data.isEnterPressed) {
-        if (!window.parent.streamlitReport.state.getComponentValue('enter_pressed')) {
-            window.parent.streamlitSend({type: 'streamlit:setComponentValue', key: 'enter_pressed', value: true});
+# Add JavaScript for auto-scroll
+st.markdown("""
+<script>
+    function scrollToBottom() {
+        const chatEnd = document.getElementById('chat_end');
+        if (chatEnd) {
+            chatEnd.scrollIntoView();
         }
     }
-});
-</script>''', unsafe_allow_html=True)
 
-if 'enter_pressed' not in st.session_state:
-    st.session_state.enter_pressed = False
+    // Set a timeout to ensure this runs after the page is fully loaded
+    setTimeout(function() {
+        scrollToBottom();
+    }, 500);
+</script>
+""", unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
