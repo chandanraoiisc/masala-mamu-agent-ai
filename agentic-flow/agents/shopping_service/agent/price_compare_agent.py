@@ -6,7 +6,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from agents.shopping_service.tools.quickcompare_tool import quickcompare_scraper
 from agents.shopping_service.agent.price_compare_agent_prompt import PRICE_COMPARE_SYSTEM_PROMPT
-
+from config import settings
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class PriceComparisonAgent:
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
             temperature=0.3,
-            google_api_key=google_api_key
+            google_api_key=settings.GOOGLE_API_KEY
         )
         
         # Available tools
@@ -90,7 +90,7 @@ class ManualPriceComparisonAgent:
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
             temperature=0.3,
-            google_api_key=google_api_key
+            google_api_key=settings.GOOGLE_API_KEY
         )
         self.tools = [quickcompare_scraper]
         self.tools_dict = {tool.name: tool for tool in self.tools}

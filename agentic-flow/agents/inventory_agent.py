@@ -43,28 +43,31 @@ class InventoryAgent(BaseAgent):
     async def process(self, state: AgentState) -> Dict[str, Any]:
         logger.debug("Entering process method of InventoryAgent")
         query = state["query"]
-        logger.debug(f"Query: {query}")
+        print(f"Query: {query}")
 
         inventory = self._load_inventory()
         available_items = inventory.get("available", [])
-        logger.debug(f"Available items: {available_items}")
+        print(f"Available items: {available_items}")
         # Step 2: Load and validate recipe_data from state
         recipe_data = state.get("recipe_data")
 
         missing_ingredients = []
         if recipe_data:
             try:
-                logger.debug(f"Recipe ingredients: {recipe_data}")
+                print(f"Recipe ingredients: {recipe_data}")
 
                 # Compare recipe ingredients with available inventory
                 available_names = [item["name"].lower() for item in available_items]
+                print("ai",available_items)
                 for ingredient in recipe_data.ingredients:
+                    print("i",ingredient)
                     if ingredient["name"].lower() not in available_names:
                         missing_ingredients.append({
-                            "name":ingredient.name,
-                            "quantity": ingredient.quantity,
-                            "unit": 'unkown'
+                            "name": ingredient["name"],
+                            "quantity": ingredient.get("quantity", "unknown"),
+                            "unit": ingredient.get("unit", "unknown")
                         })
+
             except AttributeError as e:
                 logger.error(f"Error accessing recipe_data: {str(e)}")
                 recipe_ingredients = []

@@ -24,7 +24,7 @@ class ShoppingData(BaseModel):
 
 
 class HealthData(BaseModel):
-    calories_per_serving: int
+    calories_per_serving: float = 0
     macros: Dict[str, float]
     dietary_notes: str
     fiber: float = 0

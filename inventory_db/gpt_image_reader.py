@@ -3,7 +3,9 @@ import base64
 from io import BytesIO
 import json
 import re
+from PIL import Image
 
+openai.api_key='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'
 def predict_vegetables_gpt4o(pil_image):
     buffered = BytesIO()
     pil_image.save(buffered, format="JPEG")
@@ -43,3 +45,10 @@ def predict_vegetables_gpt4o(pil_image):
         return json.loads(clean_output)
     except json.JSONDecodeError:
         return {"error": "❌ Failed to parse GPT-4o response", "raw": output}
+
+
+if __name__== '__main__':
+    image = r'D:\DeepLearning\masala-mamu-agent-ai\sample_images\receipt_001.jpg'
+    image = Image.open(image).convert("RGB")
+    results = predict_vegetables_gpt4o(image)
+    print(results)

@@ -1,17 +1,21 @@
 import asyncio
-from fastapi import FastAPI, HTTPException
+from io import BytesIO
+
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Dict, Any
 import os
-from agents.response_generator_agent import ResponseGeneratorAgent
 
+from agents.inventory_service.bill_reader import parse_bill
 from services.gpt_client import GPTClient
 from router.parser import IntentParser
 from router.orchestrator import WorkflowOrchestrator
 from agents.inventory_agent import InventoryAgent
-from agents.recipe_agent import RecipeAgent
+from agents.receipe_agent import RecipeAgent
 from agents.shopping_agent import ShoppingAgent
 from agents.health_agent import HealthAgent
+from agents.response_generator_agent import ResponseGeneratorAgent
+from PIL import Image
 from config import settings
 
 app = FastAPI(title="Kitchen Assistant API")
@@ -29,9 +33,9 @@ intent_parser = IntentParser(gpt_client=gpt_client)
 orchestrator = WorkflowOrchestrator()
 
 # Register agents
-orchestrator.register_agent(InventoryAgent())
+orchestrator.register_agent(InventoryAgent(gpt_client=gpt_client))
 orchestrator.register_agent(RecipeAgent())
-orchestrator.register_agent(ShoppingAgent(gpt_client=gpt_client))
+orchestrator.register_agent(ShoppingAgent(gpt_client=gpt_client, google_api_key=settings.GOOGLE_API_KEY))
 orchestrator.register_agent(HealthAgent())
 orchestrator.register_agent(ResponseGeneratorAgent(gpt_client=gpt_client))
 
@@ -60,13 +64,24 @@ async def process_query(request: QueryRequest):
 
         # Execute the workflow
         result = await orchestrator.execute(initial_state)
-
+        print(result)
         if "error" in result and result["error"]:
             raise HTTPException(status_code=500, detail=result["error"])
 
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/bill", response_model=Dict[str, Any])
+async def parse_grocery_bill(file: UploadFile = File(...)):
+    """Accepts a bill image and returns a parsed list of vegetables/fruits"""
+    try:
+        image_data = await file.read()
+        image = Image.open(BytesIO(image_data)).convert("RGB")
+        result = parse_bill(image)
+        return {"items": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process image: {str(e)}")
 
 
 @app.get("/health")

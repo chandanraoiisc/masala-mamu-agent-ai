@@ -123,3 +123,4 @@ if image_button:
             st.subheader("🥬🥬🥬Current Inventory Items")
             st.write(generate_answer('Fetch all '))
 
+

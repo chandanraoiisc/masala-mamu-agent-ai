@@ -21,4 +21,4 @@ def fetch_all_inventory():
         print(f"❌ Error fetching inventory: {e}")
         return []
 
-print(fetch_all_inventory())
+# print(fetch_all_inventory())

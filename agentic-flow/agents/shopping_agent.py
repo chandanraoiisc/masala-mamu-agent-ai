@@ -3,16 +3,18 @@ from agents.base_agent import BaseAgent
 from models.state import AgentState, ShoppingData
 from services.gpt_client import GPTClient
 from agents.shopping_service.agent.price_compare_agent import create_price_comparison_agent
+from config import settings
 
 
 class ShoppingAgent(BaseAgent):
     """Agent for comparing prices across shopping platforms"""
 
     def __init__(self, gpt_client: GPTClient = None, google_api_key: str = ""):
+        print(google_api_key)
         self.gpt_client = gpt_client
-        self.price_agent = create_price_comparison_agent(google_api_key)
+        self.price_agent = create_price_comparison_agent(settings.GOOGLE_API_KEY)
         self.system_message = """
-        You are a smart price comparison assistant. Your job is to extract the best shopping platform
+        You are a smart price comparison assistant. Your job is to extract the best shopping platform 
         and total cost from the price comparison report provided below.
 
         The report may mention prices from platforms like Zepto, Instamart, Blinkit, etc.
@@ -166,7 +168,7 @@ class ShoppingAgent(BaseAgent):
             missing_ingredients = recipe_data.missing
 
         query = state.get("query", "").strip()
-
+        print(missing_ingredients)
         if not missing_ingredients and query:
             ingredients_list = query
         elif missing_ingredients:
@@ -179,6 +181,7 @@ class ShoppingAgent(BaseAgent):
             )}
 
         try:
+            print(ingredients_list)
             # 🔁 Step 1: Get result from price agent
             result_str = await self.price_agent.run(f"Compare prices for: {ingredients_list}")
             print("Scraper result:\n", result_str)
@@ -209,3 +212,4 @@ class ShoppingAgent(BaseAgent):
                 total_cost=420
             )
             return {"shopping_data": shopping_data}
+

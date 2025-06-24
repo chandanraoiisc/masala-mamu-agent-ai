@@ -30,7 +30,6 @@ class WorkflowOrchestrator:
 
                 agent_updates = await agent.process(state)
                 state_updates.update(agent_updates)
-
                 completed = state.get("completed_agents", []).copy()
                 completed.append(agent.name)
                 state_updates["completed_agents"] = completed
@@ -92,8 +91,8 @@ class WorkflowOrchestrator:
         if all(agent in completed for agent in required):
             return {"next": "response_generator"}
 
-        # Otherwise, continue with the next required agent
-        return {}
+        next_agent = self._determine_next_agent(state)
+        return {"next": next_agent}
 
     async def _response_generator(self, state: AgentState) -> Dict[str, Any]:
         """Generate the final response to the user"""

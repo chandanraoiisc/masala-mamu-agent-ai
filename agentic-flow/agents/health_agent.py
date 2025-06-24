@@ -19,6 +19,9 @@ class HealthAgent(BaseAgent):
 
     async def process(self, state: AgentState) -> Dict[str, Any]:
         query = state.get("query", "")
+        recipe_data = state.get("recipe_data")
+        query = query+f" Recipe: {recipe_data.name},{recipe_data.instructions},{recipe_data.ingredients}" if recipe_data else query
+        print("q from health",query)
         result = await asyncio.to_thread(self.agent.analyze_nutrition, query)
 
         if result["success"]:
