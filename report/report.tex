@@ -188,17 +188,17 @@ Key features include multi-LLM support, web-based research through DuckDuckGo, s
 
 \subsection{Price Comparison Engine}
 
-The price comparison engine scrapes real-time pricing from Indian e-commerce platforms (BigBasket, Amazon, Flipkart, JioMart) using custom tools and suggests alternatives based on price and nutritional similarity. Data is presented comparatively for informed purchasing decisions.
+The price comparison engine scrapes real-time pricing from Indian e-commerce platforms (BigBasket, BlinkIt, Zepto, JioMart) using custom tools and suggests alternatives based on price and nutritional similarity. Data is presented comparatively for informed purchasing decisions.
 
 \subsection{Kitchen Inventory Management}
 
-The inventory management module tracks ingredients and quantities using:
+The inventory management module tracks groceries and quantities using:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item GPT-4o vision for identifying ingredients from images
+    \item GPT-4o vision for identifying groceries from images and bill receipt
     \item Vector embeddings for semantic search capabilities
-    \item MongoDB Atlas for efficient data storage
-    \item Streamlit interface for management
 \end{itemize}
+
+In MongoDB, Inventory collection has ItemNm and it’s corresponding quantity with its stored on date as fields. Along with this, an embedding field is also added with the embedded ItemNm in 384 dim vector space. A vector search index is generated on this embedding field in MongoDB. The vector search index is used as the vector store in RAG pipeline.
 
 Users can upload grocery photos or receipts for automatic item detection, with review options before database addition. The RAG-based query system enables natural language inventory questions like "What ingredients do I have for pasta?" or "Which vegetables will expire soon?"
 
@@ -262,37 +262,46 @@ It constructs a structured response tailored to the user's request by including 
 
 \section{Evaluation}
 
-\subsection{Component Performance}
+The system was evaluated on several dimensions:
 
-\textbf{Nutrition Analysis} (tested on 200 Indian ingredients/recipes):
+\subsection{OCR and Image Recognition Accuracy}
+
+Used OCR Readers for reading the grocery bills and handwritten texts, easyOCR as a standalone detected meaningless vegetable names by combining texts, easyOCR with an embedding pipeline to extract just vegetables and fruits, worked better, but still had issues with image noise and handwritten texts. Gpt-4O performed much better with very low WER and CER. A dataset of synthetic bills with handwritten text format and noisy images are generated and used for this comparison.
+
+Similarly, a dataset of different vegetables is crawled from web for comparing different models for image detection. A clip model using a small patch and large patch of openAI Vit pretrained model is compared with gpt-4O.
+Clip model with large patch performed much better with higher accuracy but failed in distinguishing alike items eg: Peas vs Beans. Gpt-4o performed with full accuracy in identifying individual as well as group of vegetables which are declutterred. For the below comparison used individual and decluttered bunch of vegetables’ images
+
+\subsection{Nutrition Accuracy}
+
+We evaluated the nutrition analysis component against a dataset of 200 common Indian ingredients and recipes, with comprehensive testing:
+
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item Macro-nutrient estimation: 92\% accuracy vs. USDA/Indian databases
-    \item Ingredient recognition: 95\% accuracy for natural language descriptions
-    \item Regional variant handling: 85\% accuracy (e.g., "bhindi"/"okra")
-    \item Measurement conversion: 88\% accuracy across units
-    \item Cooking method adjustments: 90\% accuracy for nutritional changes
-    \item Source citation quality: 94\% included reliable sources
+    \item \textbf{Macro-nutrient Estimation:} 92\% accuracy in identifying calories, protein, carbohydrates, and fat compared to standard nutrition databases (USDA and Indian Food Composition Tables)
+    \item \textbf{Ingredient Recognition:} 95\% accuracy in identifying and normalizing ingredient names from natural language descriptions
+    \item \textbf{Regional Variants:} 85\% accuracy in handling regional variations of ingredients (e.g., recognizing "bhindi" and "okra" as the same ingredient)
+    \item \textbf{Measurement Conversion:} 88\% accuracy in converting between different units (cups, grams, tablespoons) and handling imprecise measurements like "a pinch" or "a handful"
+    \item \textbf{Cooking Methods:} 90\% accuracy in adjusting nutritional values based on cooking methods (e.g., accounting for oil absorption during frying or water loss during baking)
+    \item \textbf{Source Quality:} 94\% of responses included reliable nutrition data sources with proper citations
 \end{itemize}
 
-\textbf{Price Comparison} (150 grocery items):
+Tests specifically focused on Indian cuisine demonstrated the agent's ability to handle complex multi-ingredient recipes like biryani, dosa, and various curry dishes while maintaining appropriate per-serving calculations across different portion sizes.
+
+\subsection{Price Comparison Effectiveness}
+
+The price comparison engine was evaluated on 150 common grocery items across major platforms:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item Lowest price identification: 88\% accuracy
-    \item Average savings: 12\% with recommendations
-    \item Cross-platform product matching: 93\% success
+    \item 88\% accuracy in identifying the lowest price option
+    \item Average savings of 12\% when following system recommendations
+    \item 93\% success rate in product matching across different platforms
 \end{itemize}
 
-\textbf{Inventory Management}:
-\begin{itemize}[noitemsep,topsep=0pt]
-    \item Image ingredient identification: 86\% accuracy
-    \item Receipt quantity extraction: 91\% precision
-    \item RAG query responses: 94\% accuracy
-\end{itemize}
+\subsection{User Experience}
 
-\textbf{User Experience} (25 participants):
+User testing with 25 participants showed:
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item 85\% overall satisfaction
-    \item 78\% found nutrition insights actionable
-    \item 92\% influenced by price comparison features
+    \item 85\% satisfaction with the integrated experience
+    \item 78\% found the nutrition insights actionable
+    \item 92\% reported that price comparison features influenced purchasing decisions
 \end{itemize}
 
 \section{Conclusion \& Future Work}
