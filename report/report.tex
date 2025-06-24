@@ -323,28 +323,65 @@ The system was evaluated on several dimensions:
 
 \subsection{OCR and Image Recognition Accuracy}
 
-Used OCR Readers for reading the grocery bills and handwritten texts, easyOCR as a standalone detected meaningless vegetable names by combining texts, easyOCR with an embedding pipeline to extract just vegetables and fruits, worked better, but still had issues with image noise and handwritten texts. Gpt-4O performed much better with very low WER and CER. A dataset of synthetic bills with handwritten text format and noisy images are generated and used for this comparison.
+Used OCR Readers for reading the grocery bills and handwritten texts, easyOCR as a standalone detected meaningless vegetable names by combining texts, easyOCR with an embedding pipeline to extract just vegetables and fruits, worked better, but still had issues with image noise and handwritten texts. Gpt-4O performed much better with very low WER and CER as shown in Table \ref{tab:ocr_metrics}. A dataset of synthetic bills with handwritten text format and noisy images are generated and used for this comparison.
+
+\begin{table}[ht]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|c|}
+\hline
+\textbf{Model} & \textbf{WER (D1)} & \textbf{CER (D1)} & \textbf{WER (D2)} & \textbf{CER (D2)} & \textbf{WER (D3)} & \textbf{CER (D3)} \\
+\hline
+GPT-4o & \textbf{0.1182} & \textbf{0.0745} & \textbf{0.1044} & \textbf{0.0583} & \textbf{0.0880} & \textbf{0.0577} \\
+EasyOCR + Embedding Pipeline & 0.5508 & 0.3751 & 0.5580 & 0.3839 & 0.5586 & 0.3819 \\
+\hline
+\end{tabular}%
+}
+\caption{Comparison of OCR accuracy using Word Error Rate (WER) and Character Error Rate (CER) metrics}
+\label{tab:ocr_metrics}
+\end{table}
 
 Similarly, a dataset of different vegetables is crawled from web for comparing different models for image detection. A clip model using a small patch and large patch of openAI Vit pretrained model is compared with gpt-4O.
-Clip model with large patch performed much better with higher accuracy but failed in distinguishing alike items eg: Peas vs Beans. Gpt-4o performed with full accuracy in identifying individual as well as group of vegetables which are declutterred. For the below comparison used individual and decluttered bunch of vegetables’ images
+Clip model with large patch performed much better with higher accuracy but failed in distinguishing alike items eg: Peas vs Beans. Gpt-4o performed with full accuracy in identifying individual as well as group of vegetables which are declutterred. Table \ref{tab:ocr_image_accuracy} shows the comparison of accuracy metrics for different models on these datasets.
 
-\subsection{Price Comparison Effectiveness}
+\begin{table}[ht]
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Model} & \textbf{Dataset 1} & \textbf{Dataset 2} & \textbf{Dataset 3} \\
+\hline
+CLIP (ViT-B/32, small patch) & 0.72 & 0.82 & 0.81 \\
+CLIP (ViT-L/14, large patch) & 0.92 & 0.93 & 0.94 \\
+GPT-4o (Vision + Multimodal) & \textbf{0.97} & \textbf{0.97} & \textbf{0.98} \\
+\hline
+\end{tabular}
+\caption{Comparison of image recognition accuracy across different models and datasets}
+\label{tab:ocr_image_accuracy}
+\end{table}
 
-The price comparison engine was evaluated on 150 common grocery items across major platforms:
-\begin{itemize}[noitemsep,topsep=0pt]
-    \item 88\% accuracy in identifying the lowest price option
-    \item Average savings of 12\% when following system recommendations
-    \item 93\% success rate in product matching across different platforms
-\end{itemize}
+\subsection{Recipe Generation Accuracy}
 
-\subsection{User Experience}
+Recipe generation capabilities were evaluated across four large language models on three datasets of varying complexity and cuisine types. As shown in Table \ref{tab:recipe_accuracy}, smaller, well-optimized models outperformed larger ones in this specialized domain.
 
-User testing with 25 participants showed:
-\begin{itemize}[noitemsep,topsep=0pt]
-    \item 85\% satisfaction with the integrated experience
-    \item 78\% found the nutrition insights actionable
-    \item 92\% reported that price comparison features influenced purchasing decisions
-\end{itemize}
+\begin{table}[ht]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Model} & \textbf{Dataset 1} & \textbf{Dataset 2} & \textbf{Dataset 3} \\
+\hline
+xai/grok-3-mini & \textbf{0.99} & 0.95 & \textbf{0.96} \\
+mistral-ai/Ministral-3B & 0.97 & 0.93 & 0.94 \\
+meta/Meta-Llama-3.1-70B-Instruct & 0.68 & 0.64 & 0.70 \\
+microsoft/Phi-3.5-MoE-instruct & \textbf{0.99} & \textbf{0.97} & \textbf{0.96} \\
+\hline
+\end{tabular}%
+}
+\caption{Comparison of recipe generation accuracy across different LLMs and datasets}
+\label{tab:recipe_accuracy}
+\end{table}
+
+Both xai/grok-3-mini and microsoft/Phi-3.5-MoE-instruct demonstrated exceptional accuracy (above 0.95) across all datasets. The mistral-ai/Ministral-3B model also performed well with slightly lower but reliable scores. Surprisingly, the significantly larger meta/Meta-Llama-3.1-70B-Instruct model showed substantially lower accuracy (0.64–0.70), indicating that architecture specialization and training optimization are more important than model size for domain-specific tasks like recipe generation.
 
 \section{Conclusion \& Future Work}
 
