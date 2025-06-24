@@ -249,7 +249,7 @@ The routing logic is implemented using LangGraph, starting at a router node that
 \subsection{Response Generator}
 
 The ResponseGeneratorAgent reads the current state and parsed intent to understand the user's query and the agents involved in processing it. Based on this, it selectively parses outputs such as recipe\_data, inventory\_data, shopping\_data, and health\_data, depending on which agents were used.
- 
+
 It constructs a structured response tailored to the user's request by including only the relevant sections—e.g., a recipe if the user asked for one, or nutritional data if health advice was sought. This ensures precision and relevance in the system's responses while maintaining a cohesive user experience across multiple agent interactions.
 
 \section{Evaluation}
