@@ -96,10 +96,11 @@ Maintaining a balanced diet while managing costs presents significant challenges
 Key contributions include:
 \begin{itemize}[noitemsep,topsep=0pt]
     \item A multi-agent routing architecture for specialized task delegation
+    \item A recipe generation system that considers inventory and dietary preferences
     \item A nutrition analysis system with macro-nutrient breakdown capabilities
-    \item A price comparison engine for major Indian e-commerce platforms
+    \item A price comparison agent for major Indian e-commerce platforms
     \item Vision-based inventory management with semantic search
-    \item Real-time nutrition tracking with personalized insights
+    \item Real-time nutrition tracking dashboard with personalized insights
 \end{itemize}
 
 \section{System Architecture}
@@ -110,15 +111,20 @@ Masala Mamu uses specialized agents coordinated by a central router:
 
 \begin{figure}[h]
 \centering
-\begin{tikzpicture}[>=latex,scale=0.9]
-    \draw[->, gray!70, thin] (0,-6) to[out=180,in=180] (0,0);
-    \node[rectangle, draw, fill=white, minimum width=2.5cm, minimum height=0.7cm] (user) at (0,0) {User Interface};
-    \node[rectangle, draw, fill=white, minimum width=2.5cm, minimum height=0.7cm] (router) at (0,-1.5) {Routing Agent};
-    \node[rectangle, draw, fill=white, minimum width=1.8cm, minimum height=0.7cm] (nutrition) at (-3,-3) {Nutrition Agent};
-    \node[rectangle, draw, fill=white, minimum width=1.8cm, minimum height=0.7cm] (inventory) at (0,-3) {Inventory Agent};
-    \node[rectangle, draw, fill=white, minimum width=1.8cm, minimum height=0.7cm] (price) at (3,-3) {Price Comparison};
-    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.7cm] (response) at (0,-5) {Response Generator};
+\begin{tikzpicture}[>=latex] % Use latex arrow style which is very clear
 
+    % Draw the curved arrow first (will be behind everything)
+    \draw[->, gray!70, thin] (0,-6.5) to[out=180,in=180] (0,0);
+
+    % Define the nodes with opaque backgrounds and borders
+    \node[rectangle, draw, fill=white, minimum width=3cm, minimum height=0.8cm] (user) at (0,0) {User Interface};
+    \node[rectangle, draw, fill=white, minimum width=3cm, minimum height=0.8cm] (router) at (0,-2) {Routing Agent};
+    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (nutrition) at (-3,-4) {Nutrition Agent};
+    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (inventory) at (0,-4) {Inventory Agent};
+    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (price) at (3,-4) {Price Comparison};
+    \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (response) at (0,-6.5) {Response Generator};
+
+    % Draw all other arrows on top with bold style
     \draw[->] (user) -- (router);
     \draw[->] (router) -- (nutrition);
     \draw[->] (router) -- (inventory);
@@ -132,6 +138,7 @@ Masala Mamu uses specialized agents coordinated by a central router:
 
 \begin{itemize}[noitemsep,topsep=0pt]
     \item \textbf{Routing Agent:} Directs workflows based on query intent and task state
+    \item \textbf{Recipe Agent:} Generates meal suggestions based on inventory, dietary, and cuisine preferences
     \item \textbf{Nutrition Agent:} Processes food queries and provides nutritional data
     \item \textbf{Price Agent:} Finds best grocery deals across e-commerce platforms
     \item \textbf{Inventory Agent:} Manages kitchen ingredients database
