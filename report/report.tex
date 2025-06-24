@@ -94,7 +94,7 @@ The system communicates with a central LLM (Large Language Model) which facilita
 
 \section{Introduction}
 
-The increasing complexity of maintaining a balanced diet while being cost-conscious presents a significant challenge for many households. Existing solutions typically address either nutrition tracking or price comparison separately, creating a fragmented user experience. Masala Mamu bridges this gap by offering an integrated approach to meal planning and grocery shopping, with a focus on the Indian context where diverse dietary preferences and a complex e-commerce landscape make optimized food decisions challenging.
+The increasing complexity of maintaining a balanced diet while being cost-conscious presents a significant challenge for many households. Existing solutions typically address either nutrition tracking, recipe generation using given ingredients, or ingredients price comparison separately, creating a fragmented user experience. Masala Mamu bridges this gap by offering an integrated approach to meal planning and grocery shopping, with a focus on the Indian context where diverse dietary preferences and a complex e-commerce landscape make optimized food decisions challenging.
 
 The key contributions of this project include:
 \begin{itemize}[noitemsep,topsep=0pt]
@@ -120,7 +120,7 @@ Masala Mamu employs a modular architecture comprised of specialized agents coord
 
     % Define the nodes with opaque backgrounds and borders
     \node[rectangle, draw, fill=white, minimum width=3cm, minimum height=0.8cm] (user) at (0,0) {User Interface};
-    \node[rectangle, draw, fill=white, minimum width=3cm, minimum height=0.8cm] (router) at (0,-2) {Query Router};
+    \node[rectangle, draw, fill=white, minimum width=3cm, minimum height=0.8cm] (router) at (0,-2) {Routing Agent};
     \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (nutrition) at (-3,-4) {Nutrition Agent};
     \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (inventory) at (0,-4) {Inventory Agent};
     \node[rectangle, draw, fill=white, minimum width=2cm, minimum height=0.8cm] (price) at (3,-4) {Price Comparison};
@@ -139,7 +139,7 @@ Masala Mamu employs a modular architecture comprised of specialized agents coord
 \end{figure}
 
 \begin{itemize}[noitemsep,topsep=0pt]
-    \item \textbf{Query Router:} Analyzes user queries and directs them to the appropriate specialized agent
+    \item \textbf{Routing Agent:} Intelligently creates the workflow and directs it by selecting the next appropriate agent based on current state and task completion
     \item \textbf{Nutrition Analysis Agent:} Processes food-related queries and provides nutritional information
     \item \textbf{Price Comparison Agent:} Searches for the best grocery deals across e-commerce platforms
     \item \textbf{Inventory Management Agent:} Tracks kitchen ingredients and facilitates inventory queries
@@ -163,6 +163,22 @@ The implementation leverages modern AI and web technologies:
 \end{itemize}
 
 \section{Key Components}
+
+\subsection{Routing Engine}
+
+The LangGraph router flow is the heart of the Kitchen Assistant's execution logic. Before routing begins, the IntentParser uses a GPT-powered prompt via Azure OpenAI to interpret the user query. It extracts essential information including the primary and secondary intents, key entities (such as ingredients or dish names), and most importantly, determines the optimal sequence of agents to fulfill the request. This agent flow guides the routing logic to execute agents like recipe\_agent, inventory\_agent, or shopping\_agent in the appropriate order.
+
+It begins with a special node named "router", which acts as the entry point for every user query. Based on the current state, especially the required\_agents and completed\_agents, it intelligently decides the next agent to activate.
+
+Each agent (like InventoryAgent, RecipeAgent, etc.) is registered and added as a node in the graph. After processing, agents update the state and return control to the router. This enables a looping structure where agents are executed sequentially but conditionally, based on user intent.
+
+The router has built-in checks:
+
+Invokes response generator when direct response is received.
+
+Once all required agents are done, the workflow concludes gracefully.
+
+This modular and reactive routing makes the system goal-driven, robust, and easy to extend with new agents
 
 \subsection{Nutrition Analysis System}
 
@@ -199,9 +215,7 @@ The price comparison engine uses web scraping techniques to gather real-time pri
 
 \begin{itemize}[noitemsep,topsep=0pt]
     \item Custom scraping tools optimized for Indian e-commerce platforms
-    \item Price normalization algorithms to account for different packaging sizes
     \item Alternative product suggestions based on price and nutritional similarity
-    \item Historical price tracking to identify trends and optimal purchase timing
 \end{itemize}
 
 The pricing data is presented in a comparative format, enabling users to make informed purchasing decisions based on both cost and nutritional value.
