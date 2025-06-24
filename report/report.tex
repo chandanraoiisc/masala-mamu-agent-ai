@@ -410,27 +410,37 @@ Future work:
 \subsection*{Barani Ranjan S}
 \textit{Master of Technology (Online) - DSBA}
 
-[Individual contribution paragraph to be added]
+Led the overall architecture and system design of the Kitchen Assistant, adopting a modular, agent-based approach using LangGraph. Developed the core LangGraph orchestration layer to coordinate multiple specialized agents through a well-defined execution flow, including a custom workflow orchestrator, a robust router node for intelligent agent routing, and standardized agent and state models to ensure consistent communication across components.
+
+Implemented the IntentParser for understanding user queries and dynamically constructing the agent workflow. Created the ResponseGeneratorAgent to synthesize outputs from multiple agents into a concise and context-aware final response. Beyond core orchestration, integrated teammates' independent agents into the unified workflow, adapting their implementations to fit seamlessly within the LangGraph structure. Built and deployed a scalable and reliable FastAPI backend, ensuring smooth interaction between users and the agentic pipeline.
 
 \subsection*{Brijgopal Bharadwaj}
 \textit{Master of Technology (Online) - DSBA}
 
-Led the development of the nutrition analysis agent, implementing a comprehensive solution for recipe and ingredient nutrition tracking. Designed and built the multi-LLM compatible agent architecture with search-augmented generation capabilities. Created the database schema for nutrition tracking with SQLite and implemented the Plotly-based visualization dashboard for tracking macro-nutrient consumption over time. Established the router integration layer to enable seamless communication with the broader agent system. Added support for cooking method awareness in nutrition calculations and implemented source citation tracking to ensure transparency and reliability of nutrition data. The resulting system provides accurate, contextualized nutrition analysis with robust historical data capabilities.
+Developed the nutrition-agent module as a cornerstone of the kitchen assistant system, creating an LLM-based agent that accurately breaks down nutritional content of recipes and ingredients. Designed a system that searches the web for up-to-date nutrition data using DuckDuckGo and structures this information using Pydantic models. Implemented a SQLite database to store past queries, enabling users to track nutritional habits over time, visualized through Matplotlib charts and a Streamlit dashboard.
+
+Enhanced system flexibility to work with different LLM providers (supporting OpenAI, GitHub Copilot, and Groq). Implemented advanced features such as cooking method awareness in nutrition calculations, comprehensive error handling, logging, and a functional CLI. Created a router integration layer for smooth communication with other agents. Additionally, coordinated team efforts for the final LaTeX report, helping with formatting and condensing contributions within the page limit.
 
 \subsection*{M Chandan Kumar Rao}
 \textit{Master of Technology (Online) - DSBA}
 
-[Individual contribution paragraph to be added]
+Developed a Multi-Platform Price Comparison Agent that searches and compares prices for groceries and household items across major Indian e-commerce platforms including BigBasket, Blinkit, Zepto, and Swiggy Instamart, using LangChain technologies. Built a standalone Price Comparison MCP server architecture that integrates with the chatbot frontend, leveraging Streamlit, LangChain, and LangGraph technologies.
+
+Created a feature-rich chatbot frontend with integrated text-to-speech capabilities using Google TTS, voice-to-text functionality, and dynamic chart visualization. These features enhanced the user experience by providing multiple interaction modalities and clear visual representation of price comparisons. Additionally, made significant contributions to the overall system design and project documentation.
 
 \subsection*{Shunmuga Janani A}
 \textit{Master of Technology (Online) - DSBA}
 
-[Individual contribution paragraph to be added]
+Developed the inventory agent by creating a MongoDB instance with vector search capabilities. Utilized Sentence Transformer for embedding the ItemNm key field and enabled vector search indexing in MongoDB for the embedding field. Created CRUD operation functions and implemented a RAG framework with an LLM agent for generating responses based on the RAG retrieved context.
+
+Enhanced the system with image processing capabilities using GPT-4o to read images and receipts, extracting groceries with corresponding quantities. Implemented a Human-In-Loop confirmation process before updating inventory. Conducted comparative analysis of OCR and image recognition models using artificially generated bills and vegetable images, ensuring selection of the most effective model for the system's vision components.
 
 \subsection*{Siva S}
 \textit{Master of Technology (Online) - DSBA}
 
-[Individual contribution paragraph to be added]
+Developed a structured LLM-based cooking assistant by integrating open-source models from the GitHub Models Marketplace using LangChain. Engineered prompt templates capable of conditional reasoning and JSON-formatted responses, applying techniques such as few-shot prompting, chain-of-thought reasoning, and instruction tuning to improve generalization and reliability. Built an evaluation pipeline using DeepEval with a custom wrapper for GitHub-hosted models, enabling automated benchmarking on the RecipeDataset using answer relevancy metrics.
+
+Explored retrieval-augmented generation with DuckDuckGo-based context injection, later deprioritizing it after observing sufficient generalization from the base LLM. Experimented with injecting real-time ingredient availability as contextual input, retrieved via semantic vector search over a MongoDB Atlas database. Initially fed this inventory context directly into the recipe generation chain, but later correctly rerouted it through a dedicated router agent to support modular, agentic flow orchestration. Encapsulated the evaluation workflow into a reusable framework for scalable testing across diverse models and domains.
 
 \clearpage
 \section*{Appendix}
