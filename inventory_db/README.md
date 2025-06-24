@@ -70,6 +70,10 @@ GPT-4o outperformed other models in:
 - Accuracy in low-light or occluded vegetable images
 - Speed of processing.
 
+![image](https://github.com/user-attachments/assets/aec71f09-4caf-4ca4-995d-46bedc90cab0)
+
+![image](https://github.com/user-attachments/assets/5c1bffb4-7673-4f56-9404-e841670fe943)
+
 
 ## 🚀 Future Improvements
 
