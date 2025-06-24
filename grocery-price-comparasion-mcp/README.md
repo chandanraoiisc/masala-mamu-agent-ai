@@ -184,33 +184,56 @@ streamlit run chatbot_app.py
 🧑‍🍳 "Show price trends for household cleaning items"
 ```
 
-### Sample Conversation Flow
+## Example Output
+
+### QuickCompare Web Interface
+The agent scrapes price data from QuickCompare.in, which aggregates prices from multiple platforms:
+
+![QuickCompare Interface](./images/quickcompare-site.png)
+
+
+### AI Agent Response
+The Masala Mamu AI Assistant processes user queries and provides comprehensive price comparisons:
+
+![QuickCompare Interface](./images/AgentResponse.png)
+
+
+### Sample Console Output
+
 ```
-🧑‍🍳 User: Hi Masala Mamu!
-🤖 Mamu: Namaste! I'm your AI kitchen assistant. I can help you compare 
-         prices across Indian e-commerce platforms. What would you like 
-         to search for today?
+QuickCompare Results for 'eggs' (showing top 3 results):
 
-🧑‍🍳 User: I need to buy rice for my family
-🤖 Mamu: Great! I can help you find the best rice prices. Could you be 
-         more specific? For example:
-         - What type of rice? (Basmati, Jasmine, Brown rice)
-         - What quantity? (1kg, 5kg, 10kg)
-         - Any brand preferences?
+Brand: Farm Made
+Product: Farm Made Free Range Brown Eggs-Veg Fed & Non Fertile
+Offers:
+  - Swiggy Instamart: ₹131 (6 pieces)
+  - Blinkit: ₹131 (6 pieces)  
+  - Zepto: ₹139.84 (1 pack - 6 pcs)
+---
 
-🧑‍🍳 User: Basmati rice 5kg, any good brand
-🤖 Mamu: 🔍 Comparing basmati rice 5kg prices across platforms...
+Brand: UPF
+Product: UPF Healthy Brown Eggs - 6 pieces
+Offers:
+  - Blinkit: ₹83 (6 pieces)
+  - Zepto: ₹86.93 (1 pack - 6 pcs)
+  - Swiggy Instamart: ₹88 (6 pieces)
+---
 
-         📊 Price Comparison Results:
-         
-         🥇 CHEAPEST: BigBasket - ₹450 (Brand: India Gate)
-         📦 Amazon - ₹475 (Brand: Daawat)
-         🛒 JioMart - ₹485 (Brand: Kohinoor)
-         💸 MOST EXPENSIVE: Blinkit - ₹520 (Brand: Tilda)
-         
-         💡 You can save ₹70 by choosing BigBasket!
-         Would you like me to check delivery options or find alternatives?
+Brand: Eggoz
+Product: Eggoz Nutrition Protein Rich White Eggs
+Offers:
+  - Blinkit: ₹74 (6 pieces)
+  - Zepto: ₹80 (1 pack - 6 pcs)
+  - BigBasket: ₹90.2 (6 pieces)
+---
+
+Best Deal Summary:
+✅ Cheapest: Farm Made Free Range Brown Eggs at ₹131 (Swiggy Instamart & Blinkit)
+💰 Most Expensive: Farm Made Free Range Brown Eggs at ₹139.84 (Zepto)
+📊 Price Range: ₹74 - ₹139.84
+🛒 Platforms Available: 4 (Blinkit, Zepto, Swiggy Instamart, BigBasket)
 ```
+
 
 
 
