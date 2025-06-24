@@ -86,6 +86,9 @@
 
 \begin{abstract}
 Modern households struggle with kitchen management tasks like grocery tracking, meal planning, and dietary monitoring. We present Masala Mamu, an AI-powered kitchen assistant using a multi-agent system to integrate these functions. A central Router Agent delegates tasks to specialized agents: Inventory Manager (tracks ingredients), Price Comparison Agent (finds deals across vendors), Recipe Generator (suggests meals based on inventory), and Health \& Diet Agent (monitors nutrition). Built on LangChain/LangGraph with multimodal capabilities, the system offers an integrated approach to meal planning and grocery shopping optimized for Indian dietary preferences and e-commerce landscape.
+
+\smallskip
+\noindent\small{\textbf{Project Code:} \url{https://github.com/chandanraoiisc/masala-mamu-agent-ai}}
 \end{abstract}
 
 \end{frontmatter}
@@ -201,6 +204,18 @@ The inventory management module tracks groceries and quantities using:
 In MongoDB, Inventory collection has ItemNm and it’s corresponding quantity with its stored on date as fields. Along with this, an embedding field is also added with the embedded ItemNm in 384 dim vector space. A vector search index is generated on this embedding field in MongoDB. The vector search index is used as the vector store in RAG pipeline.
 
 Users can upload grocery photos or receipts for automatic item detection, with review options before database addition. The RAG-based query system enables natural language inventory questions like "What ingredients do I have for pasta?" or "Which vegetables will expire soon?"
+
+\subsection{Recipe Generation Service}
+
+The recipe generation service provides intelligent dish recommendations based on available ingredients and user preferences:
+
+\begin{itemize}[noitemsep,topsep=0pt]
+    \item \textbf{Ingredient-Aware Recommendations:} Suggests dishes that can be prepared using available inventory
+    \item \textbf{Structured Response:} Returns JSON-formatted recipes with ingredient quantities and step-by-step instructions
+    \item \textbf{Inventory Integration:} Leverages available ingredient data to make practical cooking suggestions
+\end{itemize}
+
+The service uses prompt engineering to generate contextually relevant recipes and maintains a consistent output structure through carefully designed prompts. When integrated with the inventory system, it can suggest dishes optimized to use available ingredients, reducing food waste and simplifying meal planning.
 
 \subsection{Interactive User Interface}
 
