@@ -57,24 +57,52 @@ export GOOGLE_API_KEY="your-google-api-key-here"
 
 ## Example Output
 
+### QuickCompare Web Interface
+The agent scrapes price data from QuickCompare.in, which aggregates prices from multiple platforms:
+
+![QuickCompare Interface](./images/quickcompare-site.png)
+
+
+### AI Agent Response
+The Masala Mamu AI Assistant processes user queries and provides comprehensive price comparisons:
+
+![QuickCompare Interface](./images/AgentResponse.png)
+
+
+### Sample Console Output
+
 ```
 QuickCompare Results for 'eggs' (showing top 3 results):
 
-Brand: Fresho
-Product: Farm Fresh Eggs 6 pieces
+Brand: Farm Made
+Product: Farm Made Free Range Brown Eggs-Veg Fed & Non Fertile
 Offers:
-  - BigBasket: ₹48 (6)
-  - Blinkit: ₹52 (6)
-  - Zepto: ₹45 (6)
+  - Swiggy Instamart: ₹131 (6 pieces)
+  - Blinkit: ₹131 (6 pieces)  
+  - Zepto: ₹139.84 (1 pack - 6 pcs)
 ---
 
-Brand: Happy Hens
-Product: Brown Eggs 12 pieces
+Brand: UPF
+Product: UPF Healthy Brown Eggs - 6 pieces
 Offers:
-  - Swiggy Instamart: ₹85 (12)
-  - JioMart: ₹88 (12)
-  - BigBasket: ₹82 (12)
+  - Blinkit: ₹83 (6 pieces)
+  - Zepto: ₹86.93 (1 pack - 6 pcs)
+  - Swiggy Instamart: ₹88 (6 pieces)
 ---
+
+Brand: Eggoz
+Product: Eggoz Nutrition Protein Rich White Eggs
+Offers:
+  - Blinkit: ₹74 (6 pieces)
+  - Zepto: ₹80 (1 pack - 6 pcs)
+  - BigBasket: ₹90.2 (6 pieces)
+---
+
+Best Deal Summary:
+✅ Cheapest: Farm Made Free Range Brown Eggs at ₹131 (Swiggy Instamart & Blinkit)
+💰 Most Expensive: Farm Made Free Range Brown Eggs at ₹139.84 (Zepto)
+📊 Price Range: ₹74 - ₹139.84
+🛒 Platforms Available: 4 (Blinkit, Zepto, Swiggy Instamart, BigBasket)
 ```
 
 ## License
