@@ -8,11 +8,11 @@ from agents.shopping_service.agent.price_compare_agent import create_price_compa
 class ShoppingAgent(BaseAgent):
     """Agent for comparing prices across shopping platforms"""
 
-    def __init__(self, gpt_client: GPTClient = None,google_api_key: str = ""):
+    def __init__(self, gpt_client: GPTClient = None, google_api_key: str = ""):
         self.gpt_client = gpt_client
         self.price_agent = create_price_comparison_agent(google_api_key)
         self.system_message = """
-        You are a smart price comparison assistant. Your job is to extract the best shopping platform 
+        You are a smart price comparison assistant. Your job is to extract the best shopping platform
         and total cost from the price comparison report provided below.
 
         The report may mention prices from platforms like Zepto, Instamart, Blinkit, etc.

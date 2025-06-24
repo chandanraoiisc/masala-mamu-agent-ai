@@ -54,7 +54,7 @@ async def main():
 
         orchestrator.register_agent(InventoryAgent(gpt_client=gpt_client))
         orchestrator.register_agent(RecipeAgent())
-        orchestrator.register_agent(ShoppingAgent(gpt_client=gpt_client,google_api_key='AIzaSyBiE_w_O9seDK___pxo2OaskEetqhvfCeQ'))
+        orchestrator.register_agent(ShoppingAgent(gpt_client=gpt_client))
         orchestrator.register_agent(HealthAgent())
         orchestrator.register_agent(ResponseGeneratorAgent(gpt_client=gpt_client))  # Add this line
 
