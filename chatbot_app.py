@@ -758,7 +758,7 @@ def stream_response():
         st.rerun()
 
 def handle_image_upload(uploaded_file):
-    """Process the uploaded image."""
+    """Process the uploaded image with OCR using the backend inventory service."""
     try:
         # Save uploaded file to a temp location
         file_path = f"temp_uploads/{uploaded_file.name}"
@@ -769,11 +769,54 @@ def handle_image_upload(uploaded_file):
 
         st.sidebar.success(f"Received image: {uploaded_file.name}")
 
-        # Process the image (placeholder for integration with receipt processing)
-        # TODO: Add OCR/image processing here
+        # Process the image using the backend OCR API
+        ocr_api_url = st.session_state.api_url.replace("/query", "/bill")
+
+        # Prepare the file for upload
+        files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+
+        # Show processing status
+        with st.sidebar:
+            with st.spinner("Processing image with OCR..."):
+                try:
+                    response = requests.post(ocr_api_url, files=files, timeout=30)
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        items = result.get("items", [])
+
+                        if items:
+                            st.success(f"✅ Successfully processed {len(items)} items from the image!")
+
+                            # Display processed items
+                            st.markdown("**Processed Items:**")
+                            for item in items:
+                                st.markdown(f"• {item}")
+
+                            # Add a message to the chat about the processed image
+                            image_message = {
+                                "role": "assistant",
+                                "content": f"I've successfully processed your image and found {len(items)} items:\n\n" +
+                                          "\n".join([f"• {item}" for item in items]) +
+                                          "\n\nThese items have been added to your inventory. You can now ask me about recipes, nutrition information, or shopping suggestions based on these items!",
+                                "timestamp": datetime.now().strftime("%H:%M:%S")
+                            }
+                            st.session_state.messages.append(image_message)
+                        else:
+                            st.warning("No items were detected in the image. Please try with a clearer image of grocery items or receipts.")
+                    else:
+                        st.error(f"Failed to process image: {response.status_code} - {response.text}")
+
+                except requests.exceptions.Timeout:
+                    st.error("Request timeout. The OCR processing took too long. Please try again.")
+                except requests.exceptions.ConnectionError:
+                    st.error("Could not connect to the backend API. Please ensure the backend is running.")
+                except Exception as api_error:
+                    st.error(f"API error: {str(api_error)}")
 
     except Exception as e:
         st.sidebar.error(f"Error processing image: {str(e)}")
+        logger.error(f"Image upload error: {str(e)}", exc_info=True)
 
 # Sidebar
 with st.sidebar:
