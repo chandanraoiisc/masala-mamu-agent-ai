@@ -17,7 +17,7 @@ from agents.health_diet_agent.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 # Database file path
-DB_FILE = os.path.join("agents/health_diet_agent", 'db/nutrition_records.db')
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db/nutrition_records.db')
 
 def init_db():
     """Initialize the database with the required tables if they don't exist."""

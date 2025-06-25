@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import requests
+import time
 
 # Import nutrition dashboard integration
 from nutrition_dashboard import render_nutrition_dashboard_page
@@ -20,7 +21,7 @@ import base64
 
 # Configure logging - enhanced for debugging
 logging.basicConfig(
-    level=logging.DEBUG,  # Changed to DEBUG level for more detailed logs
+    level=logging.INFO,  # Changed to DEBUG level for more detailed logs
     format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
     handlers=[
         logging.StreamHandler(stream=sys.stdout)
@@ -203,6 +204,66 @@ body, .stApp {
     bottom: 7.5rem;
     background: #2196f3;
 }
+
+/* Better markdown rendering styles */
+.stMarkdown {
+    line-height: 1.6;
+}
+
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.stMarkdown p {
+    margin-bottom: 1rem;
+}
+
+.stMarkdown ul, .stMarkdown ol {
+    margin-left: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stMarkdown li {
+    margin-bottom: 0.25rem;
+}
+
+.stMarkdown code {
+    background-color: #f1f3f4;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.3rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.stMarkdown pre {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+.stMarkdown blockquote {
+    border-left: 4px solid #2196f3;
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: #666;
+    font-style: italic;
+}
+
+/* Typing animation */
+.typing-indicator {
+    display: inline-block;
+    animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -247,6 +308,15 @@ if "input_content" not in st.session_state:
 
 if "input_key" not in st.session_state:
     st.session_state.input_key = "input_1"
+
+if "streaming_response" not in st.session_state:
+    st.session_state.streaming_response = ""
+
+if "is_streaming" not in st.session_state:
+    st.session_state.is_streaming = False
+
+if "stream_complete" not in st.session_state:
+    st.session_state.stream_complete = False
 
 # ------------------------- Speech Engine Setup -------------------------
 @st.cache_resource
@@ -444,10 +514,10 @@ def parse_structured_response(response_str: str) -> dict:
             "structured_data": None
         }
 
-def render_message_bubble(message: dict):
-    """Renders a single message bubble with advanced formatting."""
+def render_message_bubble(message: dict, is_streaming: bool = False):
+    """Renders a single message bubble with advanced formatting and proper markdown support."""
     # Log the message being rendered
-    logger.info(f"Rendering message bubble: role={message.get('role')}, content_length={len(message.get('content', ''))}")
+    logger.info(f"Rendering message bubble: role={message.get('role')}, content_length={len(message.get('content', ''))}, streaming={is_streaming}")
     logger.debug(f"Message content preview: {message.get('content', '')[:100]}...")
 
     is_user = message["role"] == "user"
@@ -458,56 +528,74 @@ def render_message_bubble(message: dict):
     header_name = "You" if is_user else "Masala Mamu"
     timestamp = message.get("timestamp", "")
 
-    message_html = f'''
-    <div class="chat-message {bubble_class}">
-        <div class="message-header">
-            <img src="{avatar_img}" class="avatar" />
-            <strong>{header_name}</strong> <span>•</span> <span>{timestamp}</span>
-        </div>
-        <div class="message-content">
-    '''
+    # Create a container for the message
+    with st.container():
+        # Message header
+        col1, col2 = st.columns([1, 10])
+        with col1:
+            st.image(avatar_img, width=40)
+        with col2:
+            st.caption(f"**{header_name}** • {timestamp}")
 
-    # Process based on content type
-    if message["role"] == "assistant":
-        logger.info("Rendering assistant message")
-        # Parse possible structured data
-        parsed_data = parse_structured_response(message["content"])
-        content = parsed_data["summary"]
+        # Message content with proper styling
+        message_container = st.container()
+        with message_container:
+            if is_user:
+                # User message - simple text with user styling
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(90deg, #e3f2fd 60%, #bbdefb 100%);
+                    padding: 1rem 1.2rem;
+                    border-radius: 1rem 1rem 0.2rem 1rem;
+                    margin: 0.5rem 0;
+                    box-shadow: 0 2px 8px rgba(33,150,243,0.07);
+                ">
+                    {message['content'].replace('\n', '<br>')}
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Assistant message - render as markdown with bot styling
+                content = message["content"]
 
-        logger.info(f"Assistant message content length: {len(content)}")
+                # Parse structured data if present
+                parsed_data = parse_structured_response(content)
+                content_to_render = parsed_data["summary"]
 
-        # Format assistant message with Markdown and special handling
-        if parsed_data["structured_data"] and "products" in parsed_data["structured_data"]:
-            logger.info("Rendering message with structured product data")
-            products = parsed_data["structured_data"]["products"]
-            # Detailed product comparison rendering would go here
-            content = content.replace('\n', '<br>')
-            message_html += f"<p>{content}</p>"
-            logger.debug(f"Product data HTML length: {len(message_html)}")
-        else:
-            logger.info("Rendering regular assistant message without structured data")
-            content = content.replace('\n', '<br>')
-            message_html += f"<p>{content}</p>"
-            logger.debug(f"Regular message HTML length: {len(message_html)}")
-    else:
-        # User message
-        logger.info("Rendering user message")
-        content = message["content"].replace('\n', '<br>')
-        message_html += f"<p>{content}</p>"
-        logger.debug(f"User message HTML length: {len(message_html)}")
+                # Create styled container for bot message
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(90deg, #fff 60%, #e8f5e9 100%);
+                    padding: 1rem 1.2rem;
+                    border-radius: 1rem 1rem 1rem 0.2rem;
+                    margin: 0.5rem 0;
+                    box-shadow: 0 2px 8px rgba(76,175,80,0.07);
+                    border-left: 3px solid #4caf50;
+                ">
+                """, unsafe_allow_html=True)
 
-    message_html += '</div></div>'
-    logger.info(f"Final HTML length: {len(message_html)}")
-    logger.info("Calling st.markdown with HTML content")
-    st.markdown(message_html, unsafe_allow_html=True)
-    logger.info("st.markdown call completed")
+                # Render content as proper markdown
+                if is_streaming or message.get("is_placeholder"):
+                    # Show streaming indicator with HTML for placeholder
+                    if message.get("is_placeholder"):
+                        st.markdown(content_to_render, unsafe_allow_html=True)
+                    else:
+                        st.markdown(content_to_render + " <span class='typing-indicator'>⏳</span>", unsafe_allow_html=True)
+                else:
+                    st.markdown(content_to_render, unsafe_allow_html=False)
+
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # Handle structured data if present
+                if parsed_data["structured_data"] and "products" in parsed_data["structured_data"]:
+                    products = parsed_data["structured_data"]["products"]
+                    st.info(f"Found {len(products)} products in comparison")
 
     # Handle audio with Safari compatibility
-    if "audio_data" in message and message["audio_data"]:
+    if not is_streaming and "audio_data" in message and message["audio_data"]:
         # Use Safari-compatible audio player
         safari_player_html = create_safari_audio_player(message["audio_data"])
         st.markdown(safari_player_html, unsafe_allow_html=True)
-    elif "audio" in message and message["audio"]:
+    elif not is_streaming and "audio" in message and message["audio"]:
         # Fallback to standard Streamlit audio
         st.audio(message["audio"], format='audio/mp3')
 
@@ -564,7 +652,7 @@ def get_chatbot_response(user_question: str) -> str:
         return f"An error occurred while processing the response: {str(e)}"
 
 def process_user_input(user_input: str):
-    """Processes user input, gets response, and updates session state."""
+    """Processes user input, gets response, and updates session state with streaming."""
     logger.info(f"Processing user input: '{user_input[:50]}...'")
 
     if not user_input.strip():
@@ -587,20 +675,53 @@ def process_user_input(user_input: str):
     st.session_state.input_content = ""
     logger.info("Input box cleared")
 
+    # Initialize streaming state
+    st.session_state.is_streaming = True
+    st.session_state.streaming_response = ""
+    st.session_state.stream_complete = False
+
+    # Add placeholder message for streaming
+    placeholder_message = {
+        "role": "assistant",
+        "content": "🤔 Masala Mamu is thinking<span class='typing-indicator'>...</span>",
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "is_placeholder": True
+    }
+    st.session_state.messages.append(placeholder_message)
+
+    # Force rerun to show placeholder
+    st.rerun()
+
+def stream_response():
+    """Handle streaming response from API"""
+    if not st.session_state.is_streaming:
+        return
+
+    # Get the last user message
+    user_messages = [msg for msg in st.session_state.messages if msg["role"] == "user"]
+    if not user_messages:
+        return
+
+    last_user_input = user_messages[-1]["content"]
+
     logger.info("Calling chatbot API for response...")
-    with st.spinner("🤔 Thinking..."):
-        response = get_chatbot_response(user_input.strip())
+
+    # Show spinner while getting response
+    with st.spinner("🤔 Masala Mamu is thinking..."):
+        response = get_chatbot_response(last_user_input)
 
     if response:
         logger.info(f"Response received from API, length: {len(response)}")
-        logger.debug(f"Response preview: {response[:100]}...")
 
+        # Remove placeholder message
+        st.session_state.messages = [msg for msg in st.session_state.messages if not msg.get("is_placeholder")]
+
+        # Add the complete response
         audio_data = None
         if st.session_state.enable_tts:
             logger.info("TTS enabled, generating audio")
-            audio_data = text_to_speech_safari_compatible(response)
-
-        logger.info(f"Audio data generated: {audio_data is not None}")
+            with st.spinner("🔊 Generating audio..."):
+                audio_data = text_to_speech_safari_compatible(response)
 
         message_data = {
             "role": "assistant",
@@ -611,18 +732,30 @@ def process_user_input(user_input: str):
         if audio_data:
             logger.info("Adding audio data to message")
             message_data["audio_data"] = audio_data
-            # Keep legacy audio for backward compatibility
             message_data["audio"] = audio_data["audio_bytes"]
 
-        logger.info("Adding assistant response to session state")
         st.session_state.messages.append(message_data)
-        logger.info(f"Session state updated, now has {len(st.session_state.messages)} messages")
 
-        # Force a rerun to update the UI immediately
-        logger.info("Processing complete, triggering UI update")
+        # Complete streaming
+        st.session_state.is_streaming = False
+        st.session_state.stream_complete = True
+
+        logger.info("Response processing complete")
+
+        # Force a rerun to show the complete response
         st.rerun()
     else:
         logger.warning("No response received from API")
+        # Remove placeholder and add error message
+        st.session_state.messages = [msg for msg in st.session_state.messages if not msg.get("is_placeholder")]
+        error_message = {
+            "role": "assistant",
+            "content": "Sorry, I couldn't get a response. Please try again.",
+            "timestamp": datetime.now().strftime("%H:%M:%S")
+        }
+        st.session_state.messages.append(error_message)
+        st.session_state.is_streaming = False
+        st.rerun()
 
 def handle_image_upload(uploaded_file):
     """Process the uploaded image."""
@@ -743,9 +876,15 @@ else:
 
     # Display chat messages
     logger.info(f"Rendering {len(st.session_state.messages)} messages from session state")
+
+    # Handle streaming response if needed
+    if st.session_state.is_streaming and not st.session_state.stream_complete:
+        stream_response()
+
     for i, message in enumerate(st.session_state.messages):
         logger.info(f"Rendering message {i+1}/{len(st.session_state.messages)}, role: {message.get('role')}")
-        render_message_bubble(message)
+        is_streaming = message.get("is_placeholder", False) or (st.session_state.is_streaming and i == len(st.session_state.messages) - 1)
+        render_message_bubble(message, is_streaming=is_streaming)
 
     logger.info("All messages rendered")
 
@@ -756,27 +895,72 @@ else:
     st.markdown('<div class="input-bar">', unsafe_allow_html=True)
     st.markdown('<div class="input-inner">', unsafe_allow_html=True)
 
-    # Add JavaScript for handling Enter key press
+    # Add JavaScript for handling Enter key press and Cmd+Enter
     st.markdown('''<script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Find the textarea after it's rendered
-    setTimeout(function() {
-        const textareas = document.querySelectorAll('textarea');
+    let retryCount = 0;
+    const maxRetries = 10;
+
+    function setupEnterKeyHandler() {
+        const textareas = document.querySelectorAll('textarea[placeholder*="Ask about prices"]');
+
+        if (textareas.length === 0 && retryCount < maxRetries) {
+            retryCount++;
+            setTimeout(setupEnterKeyHandler, 200);
+            return;
+        }
+
         textareas.forEach(function(textarea) {
-            textarea.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    const buttons = document.querySelectorAll('button');
-                    for (let button of buttons) {
-                        if (button.innerText === 'Ask') {
-                            button.click();
-                            return;
-                        }
-                    }
-                }
-            });
+            textarea.removeEventListener('keydown', handleKeyDown);
+            textarea.addEventListener('keydown', handleKeyDown);
         });
-    }, 1000);
+    }
+
+    function handleKeyDown(e) {
+        if ((e.key === 'Enter' && !e.shiftKey) || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
+            e.preventDefault();
+
+            const buttons = document.querySelectorAll('button');
+            let askButton = null;
+
+            for (let button of buttons) {
+                if (button.innerText.includes('Ask') ||
+                    button.getAttribute('data-testid')?.includes('ask') ||
+                    button.className?.includes('ask')) {
+                    askButton = button;
+                    break;
+                }
+            }
+
+            if (askButton) {
+                askButton.click();
+            } else {
+                const submitButtons = Array.from(buttons).filter(btn =>
+                    btn.innerText.trim() === 'Ask' ||
+                    btn.type === 'submit' ||
+                    btn.getAttribute('kind') === 'primary'
+                );
+                if (submitButtons.length > 0) {
+                    submitButtons[0].click();
+                }
+            }
+        }
+    }
+
+    setupEnterKeyHandler();
+
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length > 0) {
+                setTimeout(setupEnterKeyHandler, 100);
+            }
+        });
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
 });
 </script>''', unsafe_allow_html=True)
 
@@ -785,7 +969,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     # Create columns for input layout
     cols = st.columns([10, 1, 2])
-    
+
     # Input in first column
     user_query_input = cols[0].text_area(
         "Type your message...",
@@ -805,96 +989,98 @@ document.addEventListener('DOMContentLoaded', function() {
     # Ask button in third column
     ask_clicked = cols[2].button("Ask", key="ask_btn_fixed", use_container_width=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Listening indicator
-if st.session_state.listening:
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Listening indicator
+    if st.session_state.listening:
+        st.markdown("""
+        <div style="
+            position: fixed;
+            bottom: 8.5rem;
+            right: 15rem;
+            background-color: #fff3e0;
+            color: #ff9800;
+            padding: 0.5rem 1rem;
+            border-radius: 1.2rem;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 8px rgba(255,152,0,0.09);
+            z-index: 101;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        ">
+            🎤 Listening...
+            <div class="loading-dots"><span></span><span></span><span></span></div>
+        </div>
+        <style>
+        .loading-dots {
+            display: flex;
+            align-items: center;
+        }
+        .loading-dots span {
+            animation: blink 1.4s infinite;
+            font-size: 1.5rem;
+            height: 5px;
+            width: 5px;
+            margin: 0 2px;
+            border-radius: 50%;
+            background-color: #ff9800;
+            display: inline-block;
+            opacity: 0.6;
+        }
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes blink {
+            0% { transform: scale(0.8); opacity: 0.3; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.3; }
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    # Handle voice input button click
+    if voice_clicked:
+        if recognizer:
+            with st.spinner("🎤 Listening..."):
+                speech_text = recognize_speech()
+            if speech_text and speech_text != "I couldn't understand what you said." and not speech_text.startswith("Error:"):
+                st.session_state.input_content = speech_text
+                process_user_input(speech_text)
+            elif speech_text:  # Show any error or couldn't understand messages
+                st.info(f"🎤 {speech_text}")
+        else:
+            st.error("🎤 Speech recognition is not available. Check console for details.")
+
+    # Handle submit button click
+    if ask_clicked:
+        logger.info("Ask button clicked")
+        if st.session_state.input_content.strip():
+            logger.info(f"Processing input: '{st.session_state.input_content[:50]}...'")
+            process_user_input(st.session_state.input_content)
+        else:
+            logger.warning("Ask button clicked but input is empty")
+
+    # Add JavaScript for auto-scroll
     st.markdown("""
-    <div style="
-        position: fixed;
-        bottom: 8.5rem;
-        right: 15rem;
-        background-color: #fff3e0;
-        color: #ff9800;
-        padding: 0.5rem 1rem;
-        border-radius: 1.2rem;
-        font-size: 0.9rem;
-        box-shadow: 0 2px 8px rgba(255,152,0,0.09);
-        z-index: 101;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    ">
-        🎤 Listening...
-        <div class="loading-dots"><span></span><span></span><span></span></div>
-    </div>
-    <style>
-    .loading-dots {
-        display: flex;
-        align-items: center;
-    }
-    .loading-dots span {
-        animation: blink 1.4s infinite;
-        font-size: 1.5rem;
-        height: 5px;
-        width: 5px;
-        margin: 0 2px;
-        border-radius: 50%;
-        background-color: #ff9800;
-        display: inline-block;
-        opacity: 0.6;
-    }
-    .loading-dots span:nth-child(2) {
-        animation-delay: 0.2s;
-    }
-    .loading-dots span:nth-child(3) {
-        animation-delay: 0.4s;
-    }
-    @keyframes blink {
-        0% { transform: scale(0.8); opacity: 0.3; }
-        50% { transform: scale(1.2); opacity: 1; }
-        100% { transform: scale(0.8); opacity: 0.3; }
-    }
-    </style>
+    <script>
+        function scrollToBottom() {
+            const chatEnd = document.getElementById('chat_end');
+            if (chatEnd) {
+                chatEnd.scrollIntoView();
+            }
+        }
+
+        // Set a timeout to ensure this runs after the page is fully loaded
+        setTimeout(function() {
+            scrollToBottom();
+        }, 500);
+    </script>
     """, unsafe_allow_html=True)
 
-# Handle voice input button click
-if voice_clicked:
-    if recognizer:
-        with st.spinner("🎤 Listening..."):
-            speech_text = recognize_speech()
-        if speech_text and speech_text != "I couldn't understand what you said." and not speech_text.startswith("Error:"):
-            st.session_state.input_content = speech_text
-            process_user_input(speech_text)
-        elif speech_text:  # Show any error or couldn't understand messages
-            st.info(f"🎤 {speech_text}")
-    else:
-        st.error("🎤 Speech recognition is not available. Check console for details.")
-
-# Handle submit button click
-if ask_clicked:
-    logger.info("Ask button clicked")
-    if st.session_state.input_content.strip():
-        logger.info(f"Processing input: '{st.session_state.input_content[:50]}...'")
-        process_user_input(st.session_state.input_content)
-    else:
-        logger.warning("Ask button clicked but input is empty")
-
-# Add JavaScript for auto-scroll
-st.markdown("""
-<script>
-    function scrollToBottom() {
-        const chatEnd = document.getElementById('chat_end');
-        if (chatEnd) {
-            chatEnd.scrollIntoView();
-        }
-    }
-
-    // Set a timeout to ensure this runs after the page is fully loaded
-    setTimeout(function() {
-        scrollToBottom();
-    }, 500);
-</script>
-""", unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
