@@ -18,9 +18,16 @@ from gtts import gTTS
 from io import BytesIO
 import base64
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging - enhanced for debugging
+logging.basicConfig(
+    level=logging.INFO,  # Changed to DEBUG level for more detailed logs
+    format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+    handlers=[
+        logging.StreamHandler(stream=sys.stdout)
+    ]
+)
 logger = logging.getLogger(__name__)
+logger.info("Application starting with enhanced logging")
 
 # ------------------------- Streamlit Page Config -------------------------
 st.set_page_config(
@@ -390,6 +397,10 @@ def parse_structured_response(response_str: str) -> dict:
     """Extract and parse JSON from the response string, including additional text."""
     import re, json
 
+    # Log the input received for parsing
+    logger.info(f"Parsing response, length: {len(response_str)}")
+    logger.debug(f"Response preview for parsing: {response_str[:100]}...")
+
     # First, remove the JSON code block completely from the response
     # This handles ```json{...}``` patterns
     response_cleaned = re.sub(r'```json\s*\{[\s\S]*?\}\s*```', '', response_str, flags=re.MULTILINE)
@@ -399,26 +410,35 @@ def parse_structured_response(response_str: str) -> dict:
 
     structured_data = None
     if json_match:
+        logger.info("Found potential JSON data in response")
         json_str = json_match.group(0)
         try:
             data = json.loads(json_str)
             if isinstance(data, dict) and "products" in data and "summary" in data:
                 structured_data = data
+                logger.info(f"Parsed structured data with {len(data.get('products', []))} products")
                 # Remove the JSON from the cleaned response as well
                 response_cleaned = re.sub(re.escape(json_str), '', response_cleaned)
         except Exception as e:
+            logger.error(f"JSON parsing error: {e}")
             print(f"JSON parsing error: {e}")
 
     # Clean up extra whitespace and newlines
     response_cleaned = re.sub(r'\n\s*\n\s*\n+', '\n\n', response_cleaned)
     response_cleaned = response_cleaned.strip()
 
+    # Log the cleaned response
+    logger.info(f"Cleaned response length: {len(response_cleaned)}")
+    logger.debug(f"Cleaned response preview: {response_cleaned[:100]}...")
+
     if structured_data:
+        logger.info("Returning structured data and summary")
         return {
             "summary": response_cleaned,
             "structured_data": structured_data
         }
     else:
+        logger.info("Returning only summary without structured data")
         return {
             "summary": response_cleaned,
             "structured_data": None
@@ -426,6 +446,10 @@ def parse_structured_response(response_str: str) -> dict:
 
 def render_message_bubble(message: dict):
     """Renders a single message bubble with advanced formatting."""
+    # Log the message being rendered
+    logger.info(f"Rendering message bubble: role={message.get('role')}, content_length={len(message.get('content', ''))}")
+    logger.debug(f"Message content preview: {message.get('content', '')[:100]}...")
+
     is_user = message["role"] == "user"
     bubble_class = "user-message" if is_user else "bot-message"
     avatar_img = "https://avatars.githubusercontent.com/u/151195195?v=4" if is_user else "https://i.ibb.co/9Vz3Ncx/masalamamu.jpg"
@@ -445,23 +469,38 @@ def render_message_bubble(message: dict):
 
     # Process based on content type
     if message["role"] == "assistant":
+        logger.info("Rendering assistant message")
         # Parse possible structured data
         parsed_data = parse_structured_response(message["content"])
         content = parsed_data["summary"]
 
+        logger.info(f"Assistant message content length: {len(content)}")
+
         # Format assistant message with Markdown and special handling
         if parsed_data["structured_data"] and "products" in parsed_data["structured_data"]:
+            logger.info("Rendering message with structured product data")
             products = parsed_data["structured_data"]["products"]
             # Detailed product comparison rendering would go here
             content = content.replace('\n', '<br>')
             message_html += f"<p>{content}</p>"
+            logger.debug(f"Product data HTML length: {len(message_html)}")
+        else:
+            logger.info("Rendering regular assistant message without structured data")
+            content = content.replace('\n', '<br>')
+            message_html += f"<p>{content}</p>"
+            logger.debug(f"Regular message HTML length: {len(message_html)}")
     else:
         # User message
+        logger.info("Rendering user message")
         content = message["content"].replace('\n', '<br>')
         message_html += f"<p>{content}</p>"
+        logger.debug(f"User message HTML length: {len(message_html)}")
 
     message_html += '</div></div>'
+    logger.info(f"Final HTML length: {len(message_html)}")
+    logger.info("Calling st.markdown with HTML content")
     st.markdown(message_html, unsafe_allow_html=True)
+    logger.info("st.markdown call completed")
 
     # Handle audio with Safari compatibility
     if "audio_data" in message and message["audio_data"]:
@@ -526,30 +565,41 @@ def get_chatbot_response(user_question: str) -> str:
 
 def process_user_input(user_input: str):
     """Processes user input, gets response, and updates session state."""
+    logger.info(f"Processing user input: '{user_input[:50]}...'")
+
     if not user_input.strip():
+        logger.info("Empty input, returning without processing")
         return
 
     timestamp = datetime.now().strftime("%H:%M:%S")
-    st.session_state.messages.append({
+    user_message = {
         "role": "user",
         "content": user_input.strip(),
         "timestamp": timestamp
-    })
+    }
+    logger.info(f"Adding user message to session state, content length: {len(user_input.strip())}")
+    st.session_state.messages.append(user_message)
+    logger.info(f"Session state now has {len(st.session_state.messages)} messages")
 
     # Clear the input box by changing its key
     current_key_num = int(st.session_state.input_key.split("_")[1])
     st.session_state.input_key = f"input_{current_key_num + 1}"
     st.session_state.input_content = ""
+    logger.info("Input box cleared")
 
+    logger.info("Calling chatbot API for response...")
     with st.spinner("🤔 Thinking..."):
         response = get_chatbot_response(user_input.strip())
 
     if response:
+        logger.info(f"Response received from API, length: {len(response)}")
+        logger.debug(f"Response preview: {response[:100]}...")
+
         audio_data = None
         if st.session_state.enable_tts:
+            logger.info("TTS enabled, generating audio")
             audio_data = text_to_speech_safari_compatible(response)
 
-        logger.info(f"Response received: {response}")
         logger.info(f"Audio data generated: {audio_data is not None}")
 
         message_data = {
@@ -559,11 +609,19 @@ def process_user_input(user_input: str):
         }
 
         if audio_data:
+            logger.info("Adding audio data to message")
             message_data["audio_data"] = audio_data
             # Keep legacy audio for backward compatibility
             message_data["audio"] = audio_data["audio_bytes"]
 
+        logger.info("Adding assistant response to session state")
         st.session_state.messages.append(message_data)
+        logger.info(f"Session state updated, now has {len(st.session_state.messages)} messages")
+
+        # Force a rerun to update the UI immediately
+        logger.info("Processing complete, UI should update")
+    else:
+        logger.warning("No response received from API")
 
 def handle_image_upload(uploaded_file):
     """Process the uploaded image."""
@@ -654,7 +712,10 @@ else:
     st.markdown("<h1 style='text-align: center; margin-bottom: 1.5rem;'>🌶️ Masala Mamu: AI Kitchen Assistant</h1>", unsafe_allow_html=True)
 
     # Welcome message if no messages
+    logger.info(f"Starting UI render with {len(st.session_state.messages)} messages in session state")
+
     if len(st.session_state.messages) == 0:
+        logger.info("No messages in session state, adding welcome message")
         welcome_msg = {
             "role": "assistant",
             "content": "👋 Hello! I'm Masala Mamu, your AI kitchen assistant. How can I help you today? Ask me about:\n\n"
@@ -668,16 +729,24 @@ else:
 
         # Add audio to welcome message if TTS is enabled
         if st.session_state.enable_tts:
+            logger.info("TTS enabled, generating audio for welcome message")
             audio_data = text_to_speech_safari_compatible(welcome_msg["content"])
             if audio_data:
                 welcome_msg["audio_data"] = audio_data
                 welcome_msg["audio"] = audio_data["audio_bytes"]
+                logger.info("Audio added to welcome message")
 
+        logger.info("Adding welcome message to session state")
         st.session_state.messages.append(welcome_msg)
+        logger.info("Welcome message added")
 
     # Display chat messages
-    for message in st.session_state.messages:
+    logger.info(f"Rendering {len(st.session_state.messages)} messages from session state")
+    for i, message in enumerate(st.session_state.messages):
+        logger.info(f"Rendering message {i+1}/{len(st.session_state.messages)}, role: {message.get('role')}")
         render_message_bubble(message)
+
+    logger.info("All messages rendered")
 
     # Add a div for auto-scrolling
     st.markdown('<div id="chat_end"></div>', unsafe_allow_html=True)
@@ -802,8 +871,13 @@ if voice_clicked:
         st.error("🎤 Speech recognition is not available. Check console for details.")
 
 # Handle submit button click
-if ask_clicked and st.session_state.input_content.strip():
-    process_user_input(st.session_state.input_content)
+if ask_clicked:
+    logger.info("Ask button clicked")
+    if st.session_state.input_content.strip():
+        logger.info(f"Processing input: '{st.session_state.input_content[:50]}...'")
+        process_user_input(st.session_state.input_content)
+    else:
+        logger.warning("Ask button clicked but input is empty")
 
 # Add JavaScript for auto-scroll
 st.markdown("""
