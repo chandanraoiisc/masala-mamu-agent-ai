@@ -20,7 +20,7 @@ import base64
 
 # Configure logging - enhanced for debugging
 logging.basicConfig(
-    level=logging.INFO,  # Changed to DEBUG level for more detailed logs
+    level=logging.DEBUG,  # Changed to DEBUG level for more detailed logs
     format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
     handlers=[
         logging.StreamHandler(stream=sys.stdout)
@@ -619,7 +619,8 @@ def process_user_input(user_input: str):
         logger.info(f"Session state updated, now has {len(st.session_state.messages)} messages")
 
         # Force a rerun to update the UI immediately
-        logger.info("Processing complete, UI should update")
+        logger.info("Processing complete, triggering UI update")
+        st.rerun()
     else:
         logger.warning("No response received from API")
 
@@ -755,9 +756,6 @@ else:
     st.markdown('<div class="input-bar">', unsafe_allow_html=True)
     st.markdown('<div class="input-inner">', unsafe_allow_html=True)
 
-    # Create columns for input layout
-    col_input, col_voice_btn, col_ask_btn = st.columns([10, 1, 2])
-
     # Add JavaScript for handling Enter key press
     st.markdown('''<script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -782,11 +780,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>''', unsafe_allow_html=True)
 
-if 'enter_pressed' not in st.session_state:
-    st.session_state.enter_pressed = False
+    if 'enter_pressed' not in st.session_state:
+        st.session_state.enter_pressed = False
 
-with col_input:
-    user_query_input = st.text_area(
+    # Create columns for input layout
+    cols = st.columns([10, 1, 2])
+    
+    # Input in first column
+    user_query_input = cols[0].text_area(
         "Type your message...",
         value=st.session_state.input_content,
         key=st.session_state.input_key,
@@ -798,11 +799,11 @@ with col_input:
     if user_query_input != st.session_state.input_content:
         st.session_state.input_content = user_query_input
 
-with col_voice_btn:
-    voice_clicked = st.button("🎤", key="voice_btn_fixed", help="Voice Input", use_container_width=True)
+    # Voice button in second column
+    voice_clicked = cols[1].button("🎤", key="voice_btn_fixed", help="Voice Input", use_container_width=True)
 
-with col_ask_btn:
-    ask_clicked = st.button("Ask", key="ask_btn_fixed", use_container_width=True)
+    # Ask button in third column
+    ask_clicked = cols[2].button("Ask", key="ask_btn_fixed", use_container_width=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
