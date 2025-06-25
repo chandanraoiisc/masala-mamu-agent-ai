@@ -229,7 +229,7 @@ uvicorn app:app --reload
 ```
 
 ### Configuration
-Create a `.env` file with the following variables:
+Create a `Project/backend/.env` file with the following variables:
 ```env
 AZURE_OPENAI_API_KEY=your_azure_openai_key
 AZURE_OPENAI_ENDPOINT=your_azure_endpoint
