@@ -218,7 +218,16 @@ pip install -r requirements.txt
 
 # Set up environment variables
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys and keep it under backend folder
+
+# Download the playwright browser
+playwright install
+
+# Run the app.py in backend folder
+cd backend
+set GITHUB_MODEL=openai/gpt-4o-mini
+set GITHUB_TOKEN=<your github developer token>
+python app.py
 
 # Run the Streamlit app
 streamlit run chatbot_app.py
