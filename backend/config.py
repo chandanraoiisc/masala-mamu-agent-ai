@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     OPENAI_TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE", "0.0"))
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    github_token: str  = os.getenv("GITHUB_TOKEN", "")
+    github_model: str  = os.getenv("GITHUB_MODEL", "gpt-4o-mini")
 
     # Database settings (for inventory agent)
     # DB_CONNECTION_STRING: str = os.getenv("DB_CONNECTION_STRING", "")
