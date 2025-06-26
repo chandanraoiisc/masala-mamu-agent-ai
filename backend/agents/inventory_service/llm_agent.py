@@ -1,9 +1,9 @@
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 # from llm_config import get_llm
- 
-llm = ChatOpenAI(model="gpt-4o-mini",openai_api_key="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")  # Replace with your OpenAI API key
-# llm = get_llm(provider='github')
+ from config import settings
+
+llm = ChatOpenAI(model="gpt-4o-mini",openai_api_key=settings.OPENAI_API_KEY)
 # Setup retriever using MongoDB vector search
 
 
