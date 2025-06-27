@@ -5,3 +5,5 @@ SpeechRecognition
 gtts
 mcp
 playwright
+langchain
+playwright install
