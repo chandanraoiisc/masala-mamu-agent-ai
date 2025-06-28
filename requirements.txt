@@ -19,3 +19,4 @@ sounddevice
 soundfile
 scipy
 pyaudio==0.2.14
+streamlit-audiorecorder
