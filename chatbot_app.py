@@ -6,10 +6,10 @@ import logging
 from typing import Optional, List, Dict, Any
 import json
 import os
+
 import auto_install_playwright
 
-# LangChain/LangGraph imports (assuming these are from your route_agent.py)
-# Make sure run_price_agent_sync is callable from here.
+# LangChain/LangGraph imports
 from route_agent import run_price_agent_sync
 
 # Voice Input/Output imports
@@ -17,6 +17,9 @@ import speech_recognition as sr
 from gtts import gTTS
 from io import BytesIO
 import base64
+
+# New import for client-side audio recording
+from streamlit_audiorecorder import st_audiorecorder
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -148,24 +151,29 @@ body, .stApp {
 .ask-btn:hover {
     background: linear-gradient(90deg, #1976d2 60%, #00bcd4 100%);
 }
-.voice-btn {
-    background: #fff3e0;
-    color: #ff9800;
-    border: none;
-    border-radius: 50%;
-    width: 3.2rem;
-    height: 3.2rem;
-    font-size: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(255,152,0,0.09);
-    margin-left: 0.3rem;
-    transition: background 0.2s, color 0.2s;
+/* Adjust voice-btn styling to match st_audiorecorder */
+.stAudioRecorder button {
+    background: #fff3e0 !important;
+    color: #ff9800 !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 3.2rem !important;
+    height: 3.2rem !important;
+    font-size: 1.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 8px rgba(255,152,0,0.09) !important;
+    margin-left: 0.3rem !important;
+    transition: background 0.2s, color 0.2s !important;
 }
-.voice-btn.listening {
-    background: #ff9800;
-    color: #fff;
+.stAudioRecorder button:hover {
+    background: #ff9800 !important;
+    color: #fff !important;
+}
+.stAudioRecorder button.active { /* Class added by st_audiorecorder when recording */
+    background: #ff9800 !important;
+    color: #fff !important;
     animation: pulse 1.2s infinite;
 }
 @keyframes pulse {
@@ -173,6 +181,7 @@ body, .stApp {
     70% { box-shadow: 0 0 0 10px rgba(255,152,0,0.05); }
     100% { box-shadow: 0 0 0 0 rgba(255,152,0,0.0); }
 }
+
 .clear-btn {
     background: #fff;
     color: #e53935;
@@ -267,7 +276,7 @@ body, .stApp {
 }
 
 .play-audio-btn:hover {
-    background: linear-gradient(90deg, #388e3c 60%, #4caf50 100%);
+    background: linear_gradient(90deg, #388e3c 60%, #4caf50 100%);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -276,8 +285,9 @@ body, .stApp {
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if "listening" not in st.session_state:
-    st.session_state.listening = False
+# No longer needed, as st_audiorecorder manages its own state
+# if "listening" not in st.session_state:
+#     st.session_state.listening = False
 
 if "api_key" not in st.session_state:
     st.session_state.api_key = os.getenv("GOOGLE_API_KEY", "")
@@ -294,11 +304,11 @@ if "input_key" not in st.session_state:
 # ------------------------- Speech Engine Setup -------------------------
 @st.cache_resource
 def init_speech_engines():
-    """Initializes speech recognition and sets up TTS availability."""
+    """Initializes speech recognition. PyAudio is still needed by speech_recognition for processing audio data, not just live mic."""
     try:
         recognizer = sr.Recognizer()
         logger.info("SpeechRecognizer initialized.")
-        return recognizer, True
+        return recognizer, True # True indicates gTTS is generally available
     except Exception as e:
         logger.error(f"Speech engine initialization error: {str(e)}")
         return None, False
@@ -306,37 +316,13 @@ def init_speech_engines():
 recognizer, tts_available = init_speech_engines()
 
 # ------------------------- Helper Functions -------------------------
-def speech_to_text() -> Optional[str]:
-    """Convert speech to text using microphone"""
-    if not recognizer:
-        st.error("Speech recognition not available. Check microphone setup.")
-        return None
+# `speech_to_text` function is now replaced by direct processing of `wav_audio_data`
+# from st_audiorecorder. Remove or refactor if you need to use `sr.Microphone` locally.
+# def speech_to_text() -> Optional[str]:
+#     """Convert speech to text using microphone - NOT FOR STREAMLIT CLOUD"""
+#     # ... (original code, but this won't work on cloud)
+#     return None
 
-    try:
-        with sr.Microphone() as source:
-            st.session_state.listening = True
-            st.toast("🎤 Listening... Speak now!")
-            recognizer.adjust_for_ambient_noise(source, duration=0.5)
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
-
-        st.toast("🔄 Processing speech...")
-        st.session_state.listening = False
-        return recognizer.recognize_google(audio)
-    except sr.WaitTimeoutError:
-        st.warning("⏰ No speech detected. Please try again.")
-        logger.warning("Speech recognition timed out.")
-    except sr.UnknownValueError:
-        st.warning("🤷 Could not understand the speech.")
-        logger.warning("Speech recognition could not understand audio.")
-    except sr.RequestError as e:
-        st.error(f"❌ Speech recognition service error: {str(e)}")
-        logger.error(f"Speech recognition service error: {e}", exc_info=True)
-    except Exception as e:
-        st.error(f"❌ Unexpected error during speech recognition: {str(e)}")
-        logger.error(f"Unexpected error during speech recognition: {e}", exc_info=True)
-    finally:
-        st.session_state.listening = False
-    return None
 
 def text_to_speech_safari_compatible(text: str) -> Optional[Dict[str, Any]]:
     """
@@ -535,7 +521,7 @@ def render_message_content(message: Dict[str, Any]):
             
             for line in lines:
                 line = line.strip()
-                if line.startswith('*   ') or line.startswith('- '):
+                if line.startswith('* ') or line.startswith('- '):
                     if not in_list:
                         processed_lines.append('<ul>')
                         in_list = True
@@ -587,7 +573,7 @@ def render_message_content(message: Dict[str, Any]):
         safari_player_html = create_safari_audio_player(message["audio_data"])
         st.markdown(safari_player_html, unsafe_allow_html=True)
     elif "audio" in message and message["audio"]:
-        # Fallback to standard Streamlit audio
+        # Fallback to standard Streamlit audio (though audio_data should be preferred)
         st.audio(message["audio"], format='audio/mp3')
 
 def get_chatbot_response(user_question: str) -> str:
@@ -720,75 +706,57 @@ with col_input:
         st.session_state.input_content = user_query_input
 
 with col_voice_btn:
-    voice_clicked = st.button("🎤", key="voice_btn_fixed", help="Voice Input", use_container_width=True)
+    # Use the st_audiorecorder component here
+    # wav_audio_data will be None initially, then bytes when recording stops.
+    wav_audio_data = st_audiorecorder(
+        start_prompt="", # Text on the button when recording is not active
+        stop_prompt="",  # Text on the button when recording is active
+        # The key ensures the component persists state correctly
+        key="voice_recorder_widget",
+        # Pass custom CSS classes to align styling with your existing buttons
+        # You'll need to define `.stAudioRecorder button` in your CSS
+        # and potentially `.stAudioRecorder button.active` for the pulse effect.
+    )
 
 with col_ask_btn:
     ask_clicked = st.button("Ask", key="ask_btn_fixed", use_container_width=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Listening indicator
-if st.session_state.listening:
-    st.markdown("""
-    <div style="
-        position: fixed;
-        bottom: 8.5rem;
-        right: 15rem;
-        background-color: #fff3e0;
-        color: #ff9800;
-        padding: 0.5rem 1rem;
-        border-radius: 1.2rem;
-        font-size: 0.9rem;
-        box-shadow: 0 2px 8px rgba(255,152,0,0.09);
-        z-index: 101;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    ">
-        🎤 Listening...
-        <div class="loading-dots"><span></span><span></span><span></span></div>
-    </div>
-    <style>
-    .loading-dots {
-        display: flex;
-        align-items: center;
-    }
-    .loading-dots span {
-        animation: blink 1.4s infinite;
-        font-size: 1.5rem;
-        line-height: 1;
-        opacity: 0;
-    }
-    .loading-dots span:nth-child(2) {
-        animation-delay: 0.2s;
-    }
-    .loading-dots span:nth-child(3) {
-        animation-delay: 0.4s;
-    }
-    @keyframes blink {
-        0% { opacity: 0; }
-        50% { opacity: 1; }
-        100% { opacity: 0; }
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# Removed the custom listening indicator as st_audiorecorder handles it
 
 # Input Handling Logic
+# Process text input
 if (ask_clicked or (user_query_input and st.session_state.get('enter_pressed', False))) and user_query_input.strip():
     if 'enter_pressed' in st.session_state:
         st.session_state.enter_pressed = False
     process_user_input(user_query_input)
 
-if voice_clicked and not st.session_state.listening:
-    st.session_state.listening = True
-    st.rerun()
-elif voice_clicked and st.session_state.listening:
-    st.session_state.listening = False
-    st.rerun()
-elif st.session_state.listening:
-    recognized_text = speech_to_text()
-    if recognized_text:
-        process_user_input(recognized_text)
+# Process audio input from st_audiorecorder
+if wav_audio_data is not None:
+    st.toast("🔄 Processing audio...")
+    try:
+        r = recognizer # Use the cached recognizer
+        audio_file = BytesIO(wav_audio_data)
+        with sr.AudioFile(audio_file) as source:
+            audio = r.record(source) # Read the entire audio file
+
+        recognized_text = r.recognize_google(audio) # Or another recognizer like recognize_whisper
+        if recognized_text:
+            process_user_input(recognized_text)
+        else:
+            st.warning("🤷 Could not understand the speech. Please try again.")
+
+    except sr.UnknownValueError:
+        st.warning("🤷 Could not understand the speech.")
+        logger.warning("Speech recognition could not understand audio from recorded data.")
+    except sr.RequestError as e:
+        st.error(f"❌ Speech recognition service error: {str(e)}")
+        logger.error(f"Speech recognition service error for recorded audio: {e}", exc_info=True)
+    except Exception as e:
+        st.error(f"❌ Unexpected error during audio processing: {str(e)}")
+        logger.error(f"Unexpected error during audio processing from recorder: {e}", exc_info=True)
+
 
 # Enter key handling
 st.markdown('''<script>
