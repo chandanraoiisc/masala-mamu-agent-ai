@@ -1,11 +1,7 @@
-"""
-QuickCompare Tool Bridge
-This file bridges the LangChain agent with the MCP server via the client.
-"""
-
 import asyncio
 import json
 import logging
+import sys # Import sys module
 from typing import Dict, Any, Optional, Type
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -39,8 +35,9 @@ class QuickCompareScrapingTool(BaseTool):
     """
     args_schema: Type[BaseModel] = QuickCompareInput
     server_params: StdioServerParameters = Field(
+        # MODIFICATION HERE: Use sys.executable to ensure the correct python interpreter
         default_factory=lambda: StdioServerParameters(
-            command="python",
+            command=sys.executable, # Use the current Python executable
             args=["quickcompare_mcp_server.py"],
             env=None
         ),
