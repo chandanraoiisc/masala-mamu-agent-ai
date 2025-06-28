@@ -1,0 +1,14 @@
+libglib2.0-0
+libnss3-dev
+libatk-bridge2.0-0
+libdrm2
+libxcomposite1
+libxdamage1
+libxrandr2
+libgbm1
+libxss1
+libasound2
+libatspi2.0-0
+libgtk-3-0
+libgdk-pixbuf2.0-0
+libxfixes3

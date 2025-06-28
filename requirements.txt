@@ -8,3 +8,8 @@ playwright
 langchain
 fastmcp
 setuptools
+playwright-stealth
+asyncio
+requests
+beautifulsoup4
+lxml
