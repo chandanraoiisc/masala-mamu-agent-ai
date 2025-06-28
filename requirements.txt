@@ -7,3 +7,4 @@ mcp
 playwright
 langchain
 fastmcp
+setuptools
