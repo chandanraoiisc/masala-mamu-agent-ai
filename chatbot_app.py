@@ -6,6 +6,7 @@ import logging
 from typing import Optional, List, Dict, Any
 import json
 import os
+import auto_install_playwright
 
 # LangChain/LangGraph imports (assuming these are from your route_agent.py)
 # Make sure run_price_agent_sync is callable from here.

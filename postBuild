@@ -1,5 +1,0 @@
-#!/bin/bash
-echo "Installing Playwright browsers..."
-python -m playwright install chromium
-python -m playwright install-deps
-echo "Playwright installation complete"
