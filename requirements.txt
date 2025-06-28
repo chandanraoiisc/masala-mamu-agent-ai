@@ -13,4 +13,9 @@ asyncio
 requests
 beautifulsoup4
 lxml
-PyAudio
+pydub
+webrtcvad
+sounddevice
+soundfile
+scipy
+pyaudio==0.2.14

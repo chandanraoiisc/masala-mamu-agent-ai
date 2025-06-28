@@ -12,3 +12,5 @@ libatspi2.0-0
 libgtk-3-0
 libgdk-pixbuf2.0-0
 libxfixes3
+portaudio19-dev
+libasound-dev
