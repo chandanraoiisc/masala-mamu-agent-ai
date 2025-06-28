@@ -6,3 +6,4 @@ gtts
 mcp
 playwright
 langchain
+fastmcp
